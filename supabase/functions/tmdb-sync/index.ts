@@ -20,6 +20,8 @@
 //   { "mode": "estimate" }                                 how many titles each seed source holds
 //   { "mode": "scores", "limit": 900 }                     IMDb + Metacritic (+ RT if OMDb has it) from OMDb
 //   { "mode": "omdb_probe", "imdb_id": "tt0111161" }       which rating sources OMDb returns (1 call)
+//   { "mode": "letterboxd", "limit": 150 }                 match pending letterboxd_import rows to TMDB,
+//     add missing titles, then move matched films to History (apply_letterboxd_import)
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -302,6 +304,161 @@ async function scores(limit: number, started: number) {
   };
 }
 
+// ---------- Letterboxd import ----------
+// Each pending letterboxd_import row is matched to TMDB:
+//  1. a TMDB id set by hand (resolve_letterboxd_review), else
+//  2. the TMDB link on the film's Letterboxd page (exact; Letterboxd's data comes from TMDB), else
+//  3. a strict search: same year, same normalised title, movie or series. Several exact hits are
+//     only accepted when one clearly dominates (10x the votes of the next, 50+ votes).
+// Anything else goes on the review list with its candidates. Nothing is guessed.
+const LB_UA = "Mozilla/5.0 (compatible; what-to-watch-import/1.0)";
+
+function normTitle(s: string): string {
+  return (s ?? "")
+    .normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+async function letterboxdPage(uri: string): Promise<{ url: string; ref: Ref | null } | null> {
+  try {
+    const res = await fetch(uri, { redirect: "follow", headers: { "user-agent": LB_UA, accept: "text/html" } });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const url = res.url.startsWith("https://letterboxd.com/film/") ? res.url : uri;
+    let m = html.match(/data-tmdb-id="(\d+)"[^>]*data-tmdb-type="(movie|tv)"/) ??
+      html.match(/data-tmdb-type="(movie|tv)"[^>]*data-tmdb-id="(\d+)"/);
+    if (m) {
+      const [id, kind] = /^\d+$/.test(m[1]) ? [m[1], m[2]] : [m[2], m[1]];
+      return { url, ref: { tmdb_id: Number(id), type: kind === "tv" ? "series" : "movie" } };
+    }
+    m = html.match(/themoviedb\.org\/(movie|tv)\/(\d+)/);
+    if (m) return { url, ref: { tmdb_id: Number(m[2]), type: m[1] === "tv" ? "series" : "movie" } };
+    return { url, ref: null };
+  } catch {
+    return null;
+  }
+}
+
+type Candidate = { tmdb_id: number; type: TitleType; name: string; year: number | null; votes: number };
+
+async function searchCandidates(name: string, filmYear: number | null) {
+  const [mv, tv] = await Promise.all([
+    tmdb("/search/movie", { query: name, include_adult: "false", ...(filmYear ? { primary_release_year: filmYear } : {}) }),
+    tmdb("/search/tv", { query: name, include_adult: "false", ...(filmYear ? { first_air_date_year: filmYear } : {}) }),
+  ]);
+  const all: (Candidate & { names: string[] })[] = [
+    ...(mv.results ?? []).map((r: any) => ({
+      tmdb_id: r.id, type: "movie" as TitleType, name: r.title, year: year(r.release_date),
+      votes: r.vote_count ?? 0, names: [r.title, r.original_title],
+    })),
+    ...(tv.results ?? []).map((r: any) => ({
+      tmdb_id: r.id, type: "series" as TitleType, name: r.name, year: year(r.first_air_date),
+      votes: r.vote_count ?? 0, names: [r.name, r.original_name],
+    })),
+  ];
+  const sameYear = all.filter((c) => !filmYear || c.year === filmYear);
+  const target = normTitle(name);
+  const exact = sameYear
+    .filter((c) => c.names.some((n) => normTitle(n) === target))
+    .sort((a, b) => b.votes - a.votes);
+  const strip = ({ names: _n, ...c }: Candidate & { names: string[] }) => c;
+
+  if (exact.length === 1) return { ref: exact[0] as Ref, candidates: null, reason: null };
+  if (exact.length > 1) {
+    const [a, b] = exact;
+    if (a.votes >= 50 && a.votes >= 10 * Math.max(b.votes, 1)) {
+      return { ref: a as Ref, candidates: null, reason: null };
+    }
+    return { ref: null, candidates: exact.slice(0, 5).map(strip),
+             reason: `${exact.length} TMDB titles named "${name}" from ${filmYear}` };
+  }
+  const near = (sameYear.length ? sameYear : all).sort((x, y) => y.votes - x.votes).slice(0, 5).map(strip);
+  return { ref: null, candidates: near.length ? near : null,
+           reason: sameYear.length ? `No TMDB title from ${filmYear} with exactly this name`
+                                   : `Not found on TMDB for ${filmYear ?? "any year"}` };
+}
+
+async function letterboxdImport(limit: number, started: number) {
+  const { data: rows, error } = await db.from("letterboxd_import")
+    .select("import_row_id, film_name, film_year, letterboxd_uri, tmdb_id, title_type, letterboxd_film_url")
+    .eq("match_status", "pending").order("import_row_id").limit(limit);
+  if (error) throw error;
+
+  const errors: string[] = [];
+  const titleIds: number[] = [];
+  let matched = 0, review = 0, viaPage = 0, viaSearch = 0, stoppedEarly = false;
+
+  const toReview = async (id: number, reason: string, candidates: unknown, filmUrl: string | null) => {
+    review++;
+    const { error: e } = await db.from("letterboxd_import").update({
+      match_status: "review", review_reason: reason.slice(0, 300), candidates,
+      letterboxd_film_url: filmUrl, matched_at: new Date().toISOString(),
+    }).eq("import_row_id", id);
+    if (e) errors.push(`row ${id}: ${e.message}`);
+  };
+
+  await pool(rows ?? [], 5, async (r: any) => {
+    if (Date.now() - started > 110_000) { stoppedEarly = true; return; }
+    try {
+      let ref: Ref | null = null;
+      let method = "manual";
+      let filmUrl: string | null = r.letterboxd_film_url ?? r.letterboxd_uri ?? null;
+      if (r.tmdb_id && r.title_type) ref = { tmdb_id: r.tmdb_id, type: r.title_type };
+
+      if (!ref && r.letterboxd_uri) {
+        const page = await letterboxdPage(r.letterboxd_uri);
+        if (page) {
+          filmUrl = page.url;
+          if (page.ref) { ref = page.ref; method = "letterboxd_page"; }
+        }
+      }
+      if (!ref) {
+        const s = await searchCandidates(r.film_name, r.film_year);
+        if (!s.ref) return await toReview(r.import_row_id, s.reason!, s.candidates, filmUrl);
+        ref = { tmdb_id: s.ref.tmdb_id, type: s.ref.type };
+        method = "tmdb_search";
+      }
+
+      const payload = await buildPayload(ref, trackedIds);
+      if (!payload) {
+        return await toReview(r.import_row_id, `TMDB ${ref.type} ${ref.tmdb_id} has no release date`,
+                              [{ tmdb_id: ref.tmdb_id, type: ref.type }], filmUrl);
+      }
+      const { data: titleId, error: e1 } = await db.rpc("upsert_tmdb_title", { p: payload, p_region: REGION });
+      if (e1) throw new Error(e1.message);
+      if (filmUrl) await db.from("title").update({ letterboxd_url: filmUrl.slice(0, 500) }).eq("title_id", titleId);
+
+      const { error: e2 } = await db.from("letterboxd_import").update({
+        match_status: "matched", match_method: method, tmdb_id: ref.tmdb_id, title_type: ref.type,
+        title_id: titleId, letterboxd_film_url: filmUrl, review_reason: null, candidates: null,
+        matched_at: new Date().toISOString(),
+      }).eq("import_row_id", r.import_row_id);
+      if (e2) throw new Error(e2.message);
+      titleIds.push(titleId as number);
+      matched++;
+      if (method === "letterboxd_page") viaPage++;
+      if (method === "tmdb_search") viaSearch++;
+    } catch (e) {
+      errors.push(`${r.film_name} (${r.film_year}): ${(e as Error).message}`); // stays pending
+    }
+  });
+
+  // History first, so the user's own rows never pass through Home/Explore.
+  const { data: applied, error: e3 } = await db.rpc("apply_letterboxd_import", { p_username: null });
+  if (e3) errors.push(`apply_letterboxd_import: ${e3.message}`);
+  if (titleIds.length) {
+    const { error: e4 } = await db.rpc("apply_availability_moves", { p_title_ids: titleIds });
+    if (e4) errors.push(`apply_availability_moves: ${e4.message}`);
+  }
+  const { count: pending } = await db.from("letterboxd_import")
+    .select("import_row_id", { count: "exact", head: true }).eq("match_status", "pending");
+
+  return { processed: rows?.length ?? 0, matched, via_letterboxd_page: viaPage, via_tmdb_search: viaSearch,
+           review, still_pending: pending ?? null, stopped_early: stoppedEarly, applied,
+           errors: errors.slice(0, 20) };
+}
+
 // ---------- Helpers ----------
 let trackedIds = new Set<number>();
 
@@ -423,6 +580,10 @@ Deno.serve(async (req) => {
       const o = await (await fetch(url)).json();
       return json({ mode, keys: Object.keys(o), imdbRating: o.imdbRating, Ratings: o.Ratings ?? null,
                     Metascore: o.Metascore ?? null, Response: o.Response, Error: o.Error ?? null });
+    }
+    if (mode === "letterboxd") {
+      const limit = Math.min(Math.max(Number(body.limit ?? 150), 1), 300);
+      return json({ mode, ...await letterboxdImport(limit, started) });
     }
     if (mode === "estimate") return json({ mode, region: REGION, min_votes: MIN_VOTES, ...await estimate() });
     if (mode === "backfill") {
