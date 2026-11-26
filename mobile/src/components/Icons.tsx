@@ -25,6 +25,12 @@ export const FilterIcon = ({ size = 20, color = '#fff' }: P) => (
     <Path d="M4 6h16M7 12h10M10 18h4" />
   </Svg>
 );
+export const SearchIcon = ({ size = 18, color = '#fff' }: P) => (
+  <Svg {...base(size)} stroke={color} strokeWidth={2.2} strokeLinecap="round">
+    <Circle cx="11" cy="11" r="6.5" />
+    <Path d="m16 16 4.5 4.5" />
+  </Svg>
+);
 export const UserIcon = ({ size = 20, color = '#fff' }: P) => (
   <Svg {...base(size)} stroke={color} strokeWidth={2} strokeLinecap="round">
     <Circle cx="12" cy="8" r="4" />

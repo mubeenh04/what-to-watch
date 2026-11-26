@@ -4,7 +4,7 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { formatWatched, yearLabel } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
-import type { Action, CardTitle, WhereToWatch } from '../lib/types';
+import type { Action, CardTitle, ReleaseInfo, ReleaseStatus, WhereToWatch } from '../lib/types';
 import {
   BanIcon,
   CheckIcon,
@@ -103,6 +103,29 @@ export function Scores({ imdb, metacritic }: { imdb: number | null; metacritic: 
           <Text style={[styles.scoreText, styles.scoreEmpty]}>–</Text>
         )}
       </View>
+    </View>
+  );
+}
+
+const RELEASE_COLOURS: Record<ReleaseStatus, string> = {
+  upcoming: '#9c9ca5',
+  premiered: '#b48cff',
+  in_cinemas: '#ffbd3f',
+  digital: '#4fbf7a',
+  physical: '#5fa8ff',
+  on_tv: '#5fa8ff',
+};
+
+/** Release status for Explore and Watchlist, e.g. "In cinemas only · Since 14 Nov · Digital on 3 Dec". */
+function ReleaseRow({ release }: { release: ReleaseInfo }) {
+  const colour = RELEASE_COLOURS[release.status];
+  return (
+    <View style={styles.release} accessible accessibilityLabel={[release.label, release.detail].filter(Boolean).join('. ')}>
+      <View style={[styles.releasePill, { borderColor: colour }]}>
+        <View style={[styles.releaseDot, { backgroundColor: colour }]} />
+        <Text style={[styles.releaseLabel, { color: colour }]}>{release.label}</Text>
+      </View>
+      {release.detail && <Text style={styles.releaseDetail}>{release.detail}</Text>}
     </View>
   );
 }
@@ -245,6 +268,7 @@ function TitleCardInner({ item, kind, onAction }: Props) {
             Starring <Text style={styles.castName}>{item.cast.join(', ')}</Text>
           </Text>
         )}
+        {(kind === 'explore' || kind === 'watchlist') && item.release && <ReleaseRow release={item.release} />}
         <View style={styles.meta}>{meta}</View>
         {actions}
       </View>
@@ -298,6 +322,19 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
   },
   localText: { color: colors.text, fontFamily: fonts.display, fontSize: 11 },
+  release: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 8, rowGap: 4 },
+  releasePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  releaseDot: { width: 6, height: 6, borderRadius: 3 },
+  releaseLabel: { fontFamily: fonts.bodyBold, fontSize: 11.5 },
+  releaseDetail: { color: colors.muted, fontFamily: fonts.body, fontSize: 11.5 },
   watchedOn: { color: colors.muted, fontFamily: fonts.body, fontSize: 12 },
   actionsCol: { gap: 8, marginTop: 4 },
   actions: { flexDirection: 'row', gap: 8, marginTop: 4 },

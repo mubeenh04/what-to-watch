@@ -1,6 +1,15 @@
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, LayoutAnimation, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  LayoutAnimation,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { listTitles, moveTitle, StaleMoveError, type Section } from '../lib/api';
 import { supabase } from '../lib/supabase';
@@ -31,11 +40,12 @@ type Props = {
   type: TitleType | null;
   kind: CardKind;
   filters?: HomeFilters;
+  search?: string;
   hasActiveFilters?: boolean;
   onClearFilters?: () => void;
 };
 
-export function TitleList({ section, type, kind, filters, hasActiveFilters, onClearFilters }: Props) {
+export function TitleList({ section, type, kind, filters, search, hasActiveFilters, onClearFilters }: Props) {
   const { userId, version, bump } = useAppData();
   const toast = useToast();
   const [items, setItems] = useState<CardTitle[]>([]);
@@ -56,7 +66,7 @@ export function TitleList({ section, type, kind, filters, hasActiveFilters, onCl
       else setLoading(true);
       setError(null);
       try {
-        const res = await listTitles(supabase, { section, type, filters, offset: 0 });
+        const res = await listTitles(supabase, { section, type, filters, search, offset: 0 });
         if (id !== request.current) return;
         setItems(res.items);
         setHasMore(res.hasMore);
@@ -70,7 +80,7 @@ export function TitleList({ section, type, kind, filters, hasActiveFilters, onCl
         }
       }
     },
-    [section, type, filters],
+    [section, type, filters, search],
   );
 
   // Reload when the tab, filters or (someone else's) moves change.
@@ -90,7 +100,7 @@ export function TitleList({ section, type, kind, filters, hasActiveFilters, onCl
     const id = request.current;
     setLoadingMore(true);
     try {
-      const res = await listTitles(supabase, { section, type, filters, offset: items.length });
+      const res = await listTitles(supabase, { section, type, filters, search, offset: items.length });
       if (id !== request.current) return;
       setItems((prev) => {
         const seen = new Set(prev.map((i) => i.id));
@@ -102,7 +112,7 @@ export function TitleList({ section, type, kind, filters, hasActiveFilters, onCl
     } finally {
       setLoadingMore(false);
     }
-  }, [hasMore, loadingMore, loading, section, type, filters, items.length]);
+  }, [hasMore, loadingMore, loading, section, type, filters, search, items.length]);
 
   const onAction = useCallback(
     async (item: CardTitle, action: Action) => {
@@ -165,8 +175,20 @@ export function TitleList({ section, type, kind, filters, hasActiveFilters, onCl
       initialNumToRender={6}
       windowSize={7}
       removeClippedSubviews
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load('refresh')} tintColor={colors.red} colors={[colors.red]} progressBackgroundColor={colors.surface} />}
-      ListFooterComponent={loadingMore ? <ActivityIndicator style={{ marginVertical: 16 }} color={colors.muted} /> : undefined}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => load('refresh')}
+          tintColor={colors.red}
+          colors={[colors.red]}
+          progressBackgroundColor={colors.surface}
+        />
+      }
+      ListFooterComponent={
+        loadingMore ? <ActivityIndicator style={{ marginVertical: 16 }} color={colors.muted} /> : undefined
+      }
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
       ListEmptyComponent={
         error ? (
           <View style={styles.empty}>
@@ -180,7 +202,11 @@ export function TitleList({ section, type, kind, filters, hasActiveFilters, onCl
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>ALL CLEAR</Text>
             <Text style={styles.emptyText}>
-              {hasActiveFilters ? 'Nothing matches these filters. Try a wider year range or lower minimum scores.' : EMPTY_TEXT[kind]}
+              {search
+                ? `Nothing matches “${search}”${hasActiveFilters ? ' with these filters' : ''}.`
+                : hasActiveFilters
+                  ? 'Nothing matches these filters. Try a wider year range or lower minimum scores.'
+                  : EMPTY_TEXT[kind]}
             </Text>
             {hasActiveFilters && onClearFilters && (
               <Pressable style={styles.emptyBtn} onPress={onClearFilters}>
@@ -202,6 +228,12 @@ const styles = StyleSheet.create({
   empty: { marginTop: 40, marginHorizontal: 10, alignItems: 'center' },
   emptyTitle: { color: colors.text, fontFamily: fonts.display, fontSize: 21, letterSpacing: 0.8, marginBottom: 6 },
   emptyText: { color: colors.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21, textAlign: 'center' },
-  emptyBtn: { marginTop: 14, backgroundColor: colors.red, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16 },
+  emptyBtn: {
+    marginTop: 14,
+    backgroundColor: colors.red,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
   emptyBtnText: { color: '#fff', fontFamily: fonts.bodyBold, fontSize: 14 },
 });
