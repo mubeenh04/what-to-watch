@@ -1,0 +1,3 @@
+scanner.env
+*.env
+*.log
