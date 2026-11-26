@@ -22,6 +22,13 @@
 //   { "mode": "omdb_probe", "imdb_id": "tt0111161" }       which rating sources OMDb returns (1 call)
 //   { "mode": "letterboxd", "limit": 150 }                 match pending letterboxd_import rows to TMDB,
 //     add missing titles, then move matched films to History (apply_letterboxd_import)
+//   { "mode": "local_scan", "drive": "Media HDD", "volume": "My Passport", "scan_id": "<uuid>",
+//     "files": [...], "final": true }                     store one chunk of a hard drive scan
+//   { "mode": "local_match", "limit": 300 }               match pending local_file rows to TMDB and
+//     add title_availability rows (source 'local'), which moves the titles to Home
+//   { "mode": "local_review" }                            the hard drive review list (read only)
+//   The hard drive scanner on the Mac may only call the local_* modes, with x-scan-secret
+//   matching the Vault secret local_scan_secret.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -459,6 +466,189 @@ async function letterboxdImport(limit: number, started: number) {
            errors: errors.slice(0, 20) };
 }
 
+// ---------- Hard drive files ----------
+// Pending local_file rows are grouped by what guessit read (kind + title + year + hints), so all
+// episodes of a show or copies of a film need one lookup. Each group is matched by:
+//  1. a TMDB id set by hand (resolve_local_file), else a {tmdb-123} hint in the file name
+//  2. an IMDb id (tt1234567) in the file name, through TMDB /find
+//  3. a strict search: episodes search TV only, films search movies only. Same title after
+//     normalising, same year (or, when no title has that year, a single title one year off).
+//     Without a year, one exact title must clearly dominate (10x the votes, 50+ votes).
+// Anything else goes on the review list with its candidates. Nothing is guessed.
+
+// Looser than normTitle: "Ocean's Eleven" and "Oceans.Eleven" compare equal.
+function looseTitle(s: string): string {
+  return normTitle((s ?? "").replace(/['’`]/g, "")).replace(/ /g, "");
+}
+
+async function searchLocal(name: string, fileYear: number | null, type: TitleType) {
+  const kind = tmdbKind(type);
+  const yearParam = type === "movie" ? "year" : "first_air_date_year";
+  const toCand = (r: any) => ({
+    tmdb_id: r.id as number, type, name: (type === "movie" ? r.title : r.name) as string,
+    year: year(type === "movie" ? r.release_date : r.first_air_date), votes: (r.vote_count ?? 0) as number,
+    names: type === "movie" ? [r.title, r.original_title] : [r.name, r.original_name],
+  });
+  const results: ReturnType<typeof toCand>[] = [];
+  if (fileYear) {
+    const r = await tmdb(`/search/${kind}`, { query: name, include_adult: "false", [yearParam]: fileYear });
+    results.push(...(r.results ?? []).map(toCand));
+  }
+  const r2 = await tmdb(`/search/${kind}`, { query: name, include_adult: "false" });
+  for (const c of (r2.results ?? []).map(toCand)) {
+    if (!results.some((x) => x.tmdb_id === c.tmdb_id)) results.push(c);
+  }
+
+  const target = looseTitle(name);
+  const exact = results.filter((c) => c.names.some((n: string) => n && looseTitle(n) === target))
+    .sort((a, b) => b.votes - a.votes);
+  const strip = ({ names: _n, ...c }: any): Candidate => c;
+  const label = type === "movie" ? "film" : "series";
+
+  if (fileYear) {
+    const same = exact.filter((c) => c.year === fileYear);
+    if (same.length === 1) return { ref: same[0] as Ref, method: "tmdb_search", candidates: null, reason: null };
+    if (same.length > 1) {
+      return { ref: null, method: null, candidates: same.slice(0, 5).map(strip),
+               reason: `${same.length} TMDB ${label} titles named "${name}" from ${fileYear}` };
+    }
+    const near = exact.filter((c) => c.year && Math.abs(c.year - fileYear) === 1);
+    if (near.length === 1) return { ref: near[0] as Ref, method: "near_year", candidates: null, reason: null };
+    const opts = (exact.length ? exact : results).sort((a, b) => b.votes - a.votes).slice(0, 5).map(strip);
+    return { ref: null, method: null, candidates: opts.length ? opts : null,
+             reason: exact.length ? `TMDB has "${name}" but not from ${fileYear}`
+                                  : `No TMDB ${label} named exactly "${name}"` };
+  }
+
+  if (exact.length === 1 && exact[0].votes >= 5) {
+    return { ref: exact[0] as Ref, method: "tmdb_search", candidates: null, reason: null };
+  }
+  if (exact.length >= 1) {
+    const [a, b] = exact;
+    if (a.votes >= 50 && a.votes >= 10 * Math.max(b?.votes ?? 0, 1)) {
+      return { ref: a as Ref, method: "tmdb_search", candidates: null, reason: null };
+    }
+    return { ref: null, method: null, candidates: exact.slice(0, 5).map(strip),
+             reason: exact.length === 1 ? `Only a little-known TMDB ${label} is named "${name}" and the file has no year`
+                                        : `${exact.length} TMDB ${label} titles named "${name}" and the file has no year` };
+  }
+  const opts = results.sort((a, b) => b.votes - a.votes).slice(0, 5).map(strip);
+  return { ref: null, method: null, candidates: opts.length ? opts : null,
+           reason: `No TMDB ${label} named exactly "${name}"` };
+}
+
+type LocalRow = {
+  file_id: number; drive_id: number; file_path: string; parsed_title: string | null; parsed_year: number | null;
+  parsed_kind: string | null; tmdb_hint: number | null; imdb_hint: string | null; tmdb_id: number | null;
+  title_type: TitleType | null; match_method: string | null;
+};
+
+async function localMatch(limit: number, started: number) {
+  const { data: rows, error } = await db.from("local_file")
+    .select("file_id, drive_id, file_path, parsed_title, parsed_year, parsed_kind, tmdb_hint, imdb_hint, tmdb_id, title_type, match_method")
+    .eq("match_status", "pending").order("file_id").limit(1000); // PostgREST max rows
+  if (error) throw error;
+
+  const groups = new Map<string, LocalRow[]>();
+  for (const r of (rows ?? []) as LocalRow[]) {
+    const k = r.tmdb_id && r.title_type ? `manual:${r.title_type}:${r.tmdb_id}`
+      : [r.parsed_kind, looseTitle(r.parsed_title ?? ""), r.parsed_year, r.tmdb_hint, r.imdb_hint].join("|");
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k)!.push(r);
+  }
+  const work = [...groups.values()].slice(0, limit);
+
+  const errors: string[] = [];
+  let matchedFiles = 0, reviewFiles = 0, stoppedEarly = false;
+  const methods: Record<string, number> = {};
+  const ids = (g: LocalRow[]) => g.map((r) => r.file_id);
+
+  const setRows = async (g: LocalRow[], values: Record<string, unknown>) => {
+    for (let i = 0; i < g.length; i += 200) {
+      const { error: e } = await db.from("local_file").update(values).in("file_id", ids(g).slice(i, i + 200));
+      if (e) throw new Error(e.message);
+    }
+  };
+  const toReview = async (g: LocalRow[], reason: string, candidates: unknown) => {
+    await setRows(g, { match_status: "review", review_reason: reason.slice(0, 300), candidates,
+                       matched_at: new Date().toISOString() });
+    reviewFiles += g.length;
+  };
+
+  await pool(work, 5, async (g) => {
+    if (Date.now() - started > 100_000) { stoppedEarly = true; return; }
+    const r = g[0];
+    const type: TitleType = r.parsed_kind === "episode" ? "series" : "movie";
+    try {
+      let ref: Ref | null = null;
+      let method = "";
+      if (r.tmdb_id && r.title_type) { ref = { tmdb_id: r.tmdb_id, type: r.title_type }; method = "manual"; }
+      else if (r.tmdb_hint) { ref = { tmdb_id: r.tmdb_hint, type }; method = "tmdb_hint"; }
+      else if (r.imdb_hint) {
+        const f = await tmdb(`/find/${r.imdb_hint}`, { external_source: "imdb_id" });
+        const hit = type === "movie" ? f.movie_results?.[0] : (f.tv_results?.[0] ?? f.tv_episode_results?.[0]);
+        if (hit) {
+          ref = { tmdb_id: hit.show_id ?? hit.id, type };
+          method = "imdb_hint";
+        }
+      }
+      if (!ref) {
+        if (!r.parsed_title || looseTitle(r.parsed_title).length < 2) {
+          return await toReview(g, "Couldn't read a title from the file name", null);
+        }
+        const s = await searchLocal(r.parsed_title, r.parsed_year, type);
+        if (!s.ref) return await toReview(g, s.reason!, s.candidates);
+        ref = { tmdb_id: s.ref.tmdb_id, type: s.ref.type };
+        method = s.method!;
+      }
+
+      const payload = await buildPayload(ref, trackedIds).catch((e) => {
+        if (String(e.message).includes("TMDB 404")) return undefined;
+        throw e;
+      });
+      if (payload === undefined) {
+        return await toReview(g, `TMDB ${ref.type} ${ref.tmdb_id} doesn't exist`, null);
+      }
+      if (!payload) {
+        return await toReview(g, `TMDB ${ref.type} ${ref.tmdb_id} has no release date`,
+                              [{ tmdb_id: ref.tmdb_id, type: ref.type }]);
+      }
+      const { data: titleId, error: e1 } = await db.rpc("upsert_tmdb_title", { p: payload, p_region: REGION });
+      if (e1) throw new Error(e1.message);
+
+      await setRows(g, {
+        match_status: "matched", match_method: method, tmdb_id: ref.tmdb_id, title_type: ref.type,
+        title_id: titleId, review_reason: null, candidates: null, matched_at: new Date().toISOString(),
+      });
+      matchedFiles += g.length;
+      methods[method] = (methods[method] ?? 0) + 1;
+    } catch (e) {
+      errors.push(`${r.parsed_title ?? r.file_path} (${r.parsed_year ?? "no year"}): ${(e as Error).message}`); // stays pending
+    }
+  });
+
+  // Availability rows for every matched file; the insert trigger moves those titles to Home.
+  const { data: applied, error: e3 } = await db.rpc("apply_local_files", { p_drive_id: null });
+  if (e3) errors.push(`apply_local_files: ${e3.message}`);
+
+  const { count: pending } = await db.from("local_file")
+    .select("file_id", { count: "exact", head: true }).eq("match_status", "pending");
+  const { count: review } = await db.from("local_file")
+    .select("file_id", { count: "exact", head: true }).eq("match_status", "review");
+
+  return { groups: work.length, matched_files: matchedFiles, review_files: reviewFiles, methods,
+           still_pending: pending ?? null, review_total: review ?? null, stopped_early: stoppedEarly,
+           applied, errors: errors.slice(0, 20) };
+}
+
+async function localReview() {
+  const { data, error } = await db.from("local_file")
+    .select("file_id, file_path, parsed_title, parsed_year, parsed_kind, review_reason, candidates")
+    .eq("match_status", "review").order("parsed_title").order("file_path").limit(1000);
+  if (error) throw error;
+  return { files: data };
+}
+
 // ---------- Helpers ----------
 let trackedIds = new Set<number>();
 
@@ -541,6 +731,16 @@ async function importTitles(refs: Ref[]) {
 
 // Callers send either the service role key, or x-sync-secret matching the
 // Vault secret "tmdb_sync_secret" (used by the pg_cron schedule).
+// The hard drive scanner sends x-scan-secret (Vault "local_scan_secret"): local_* modes only.
+const LOCAL_MODES = ["local_scan", "local_match", "local_review"];
+
+async function scannerAuthorised(req: Request): Promise<boolean> {
+  const given = req.headers.get("x-scan-secret");
+  if (!given) return false;
+  const { data, error } = await db.rpc("check_local_scan_secret", { p_secret: given });
+  return !error && data === true;
+}
+
 async function authorised(req: Request): Promise<boolean> {
   const bearer = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
   if (SERVICE_KEY && bearer === SERVICE_KEY) return true;
@@ -557,14 +757,29 @@ const json = (body: unknown, status = 200) =>
 // ---------- Handler ----------
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
-  if (!(await authorised(req))) return json({ error: "unauthorised" }, 401);
-  if (!TMDB_KEY) return json({ error: "TMDB_API_KEY secret is not set" }, 500);
-
   const started = Date.now();
   const body = await req.json().catch(() => ({}));
   const mode = body.mode ?? "discover";
 
+  const ok = (await authorised(req)) || (LOCAL_MODES.includes(mode) && (await scannerAuthorised(req)));
+  if (!ok) return json({ error: "unauthorised" }, 401);
+  if (!TMDB_KEY) return json({ error: "TMDB_API_KEY secret is not set" }, 500);
+
   try {
+    if (mode === "local_scan") {
+      // Store one chunk of a scan. No TMDB calls.
+      if (typeof body.drive !== "string" || !body.drive.trim()) return json({ error: "drive is required" }, 400);
+      if (typeof body.scan_id !== "string") return json({ error: "scan_id is required" }, 400);
+      if (!Array.isArray(body.files)) return json({ error: "files must be an array" }, 400);
+      const { data, error } = await db.rpc("local_scan_sync", {
+        p_drive: body.drive.trim(), p_volume: body.volume ?? null, p_scan_id: body.scan_id,
+        p_files: body.files, p_final: body.final !== false, p_allow_shrink: body.allow_shrink === true,
+      });
+      if (error) throw new Error(error.message);
+      return json({ mode, ...data });
+    }
+    if (mode === "local_review") return json({ mode, ...await localReview() });
+
     await loadTrackedProviders();
     if (!trackedIds.size) return json({ error: "no subscribed service has a tmdb_provider_id" }, 500);
 
@@ -580,6 +795,10 @@ Deno.serve(async (req) => {
       const o = await (await fetch(url)).json();
       return json({ mode, keys: Object.keys(o), imdbRating: o.imdbRating, Ratings: o.Ratings ?? null,
                     Metascore: o.Metascore ?? null, Response: o.Response, Error: o.Error ?? null });
+    }
+    if (mode === "local_match") {
+      const limit = Math.min(Math.max(Number(body.limit ?? 300), 1), 600);
+      return json({ mode, ...await localMatch(limit, started) });
     }
     if (mode === "letterboxd") {
       const limit = Math.min(Math.max(Number(body.limit ?? 150), 1), 300);
