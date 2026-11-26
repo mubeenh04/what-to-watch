@@ -8,7 +8,8 @@
 // Placement is done by the database function apply_availability_moves().
 //
 // Secrets: TMDB_API_KEY (TMDB "API Read Access Token" or v3 API key).
-// Optional: TMDB_REGION (default ZA), SYNC_SECRET (lets a cron job call with x-sync-secret).
+// Optional: TMDB_REGION (default ZA). Auth: service role key, or x-sync-secret matching the
+// Vault secret tmdb_sync_secret (see migration sync_schedule).
 //
 // Request body (POST, JSON), all optional:
 //   { "mode": "discover", "pages": 3, "start_page": 1 }   Netflix ZA catalogue + trending for Explore
@@ -229,11 +230,16 @@ async function importTitles(refs: Ref[]) {
   return { imported: titleIds.length, on_netflix_za: onNetflix, skipped, placed, errors: errors.slice(0, 20) };
 }
 
-function authorised(req: Request): boolean {
+// Callers send either the service role key, or x-sync-secret matching the
+// Vault secret "tmdb_sync_secret" (used by the pg_cron schedule).
+async function authorised(req: Request): Promise<boolean> {
   const bearer = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
   if (SERVICE_KEY && bearer === SERVICE_KEY) return true;
-  if (SYNC_SECRET && req.headers.get("x-sync-secret") === SYNC_SECRET) return true;
-  return false;
+  const given = req.headers.get("x-sync-secret");
+  if (!given) return false;
+  if (SYNC_SECRET && given === SYNC_SECRET) return true;
+  const { data, error } = await db.rpc("check_sync_secret", { p_secret: given });
+  return !error && data === true;
 }
 
 const json = (body: unknown, status = 200) =>
@@ -242,7 +248,7 @@ const json = (body: unknown, status = 200) =>
 // ---------- Handler ----------
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
-  if (!authorised(req)) return json({ error: "unauthorised" }, 401);
+  if (!(await authorised(req))) return json({ error: "unauthorised" }, 401);
   if (!TMDB_KEY) return json({ error: "TMDB_API_KEY secret is not set" }, 500);
 
   const body = await req.json().catch(() => ({}));
