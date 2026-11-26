@@ -15,6 +15,8 @@
 //   { "mode": "discover", "pages": 3, "start_page": 1 }   Netflix ZA catalogue + trending for Explore
 //   { "mode": "title", "tmdb_id": 603, "type": "movie" }   one title (type: movie | series)
 //   { "mode": "refresh", "limit": 100 }                    re-check the least recently synced titles
+//   { "mode": "backfill", "max_titles": 400 }              next slice of the initial seed (cursor in sync_backfill)
+//   { "mode": "estimate" }                                 how many titles each seed source holds
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -27,7 +29,7 @@ const REGION = (Deno.env.get("TMDB_REGION") ?? "ZA").toUpperCase();
 const TMDB_KEY = Deno.env.get("TMDB_API_KEY") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const SYNC_SECRET = Deno.env.get("SYNC_SECRET") ?? "";
-const CONCURRENCY = 6;
+const CONCURRENCY = 10;
 const MAX_PAGES = 10;
 const CAST_LIMIT = 5;
 
@@ -150,6 +152,75 @@ async function trendingPages(type: TitleType, start: number, pages: number): Pro
   return refs;
 }
 
+// ---------- Initial seed (backfill) ----------
+// Sources, each walked year by year (TMDB caps a query at 500 pages):
+//   netflix: everything streaming on a tracked service in REGION
+//   popular: everything with at least MIN_VOTES votes on TMDB, wherever it streams
+const MIN_VOTES = Number(Deno.env.get("TMDB_MIN_VOTES") ?? 100);
+const FIRST_YEAR = 1900;
+const BUDGET_MS = 110_000;
+
+function discoverParams(source: string, type: TitleType, year: number | null) {
+  const p: Record<string, string | number> = { sort_by: "popularity.desc", include_adult: "false" };
+  if (year !== null) p[type === "movie" ? "primary_release_year" : "first_air_date_year"] = year;
+  if (source === "netflix") {
+    p.watch_region = REGION;
+    p.with_watch_providers = [...trackedIds].join("|");
+    p.with_watch_monetization_types = "flatrate";
+  } else {
+    p["vote_count.gte"] = MIN_VOTES;
+  }
+  return p;
+}
+
+async function estimate() {
+  const out: Record<string, number> = {};
+  for (const source of ["netflix", "popular"]) {
+    for (const type of ["movie", "series"] as TitleType[]) {
+      const r = await tmdb(`/discover/${tmdbKind(type)}`, discoverParams(source, type, null));
+      out[`${source}_${type}`] = r.total_results ?? 0;
+    }
+  }
+  return out;
+}
+
+async function backfill(maxTitles: number, started: number) {
+  const { data: rows, error } = await db.from("sync_backfill").select("*").eq("done", false).order("sort");
+  if (error) throw error;
+  const totals = { imported: 0, on_netflix_za: 0, skipped: 0, placed: 0, errors: [] as string[] };
+  let processed = 0;
+
+  for (const row of rows ?? []) {
+    let { year, page } = row as { year: number; page: number };
+    const type = row.title_type as TitleType;
+    while (year >= FIRST_YEAR && processed < maxTitles && Date.now() - started < BUDGET_MS) {
+      const r = await tmdb(`/discover/${tmdbKind(type)}`, { ...discoverParams(row.source, type, year), page });
+      const refs: Ref[] = (r.results ?? []).map((x: any) => ({ tmdb_id: x.id, type }));
+      if (refs.length) {
+        const res = await importTitles(refs);
+        totals.imported += res.imported;
+        totals.on_netflix_za += res.on_netflix_za;
+        totals.skipped += res.skipped;
+        totals.placed += res.placed;
+        totals.errors.push(...res.errors);
+        processed += refs.length;
+      }
+      const lastPage = Math.min(r.total_pages ?? 0, 500);
+      if (page >= lastPage) { year--; page = 1; } else page++;
+      await db.from("sync_backfill").update({
+        year, page, done: year < FIRST_YEAR, updated_at: new Date().toISOString(),
+        titles_seen: (row.titles_seen ?? 0) + refs.length,
+      }).eq("id", row.id);
+      row.titles_seen = (row.titles_seen ?? 0) + refs.length;
+    }
+    if (processed >= maxTitles || Date.now() - started >= BUDGET_MS) break;
+  }
+
+  const { count } = await db.from("sync_backfill").select("id", { count: "exact", head: true }).eq("done", false);
+  if (count === 0) await db.rpc("finish_tmdb_backfill");
+  return { ...totals, errors: totals.errors.slice(0, 20), backfill_done: count === 0 };
+}
+
 // ---------- Helpers ----------
 let trackedIds = new Set<number>();
 
@@ -251,12 +322,19 @@ Deno.serve(async (req) => {
   if (!(await authorised(req))) return json({ error: "unauthorised" }, 401);
   if (!TMDB_KEY) return json({ error: "TMDB_API_KEY secret is not set" }, 500);
 
+  const started = Date.now();
   const body = await req.json().catch(() => ({}));
   const mode = body.mode ?? "discover";
 
   try {
     await loadTrackedProviders();
     if (!trackedIds.size) return json({ error: "no subscribed service has a tmdb_provider_id" }, 500);
+
+    if (mode === "estimate") return json({ mode, region: REGION, min_votes: MIN_VOTES, ...await estimate() });
+    if (mode === "backfill") {
+      const maxTitles = Math.min(Math.max(Number(body.max_titles ?? 400), 20), 1000);
+      return json({ mode, region: REGION, ...await backfill(maxTitles, started) });
+    }
 
     let refs: Ref[] = [];
     if (mode === "discover") {
