@@ -1,0 +1,297 @@
+<title>What to Watch Schema</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column for the story, a wide scrollable sheet for the ERD, then a definition block per table. Dark grey + red to match the app. */
+:root{
+  --bg:#18191c; --panel:#222428; --panel2:#2a2d32; --line:#3a3e45; --fg:#ecebe8; --muted:#9b9ea6;
+  --red:#e3393f; --red-soft:#3a1d20; --fk:#8fb3d9; --amber:#e0a84a;
+  --display:"Archivo",system-ui,sans-serif; --body:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 var(--body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 64px}
+.wrap{max-width:1080px;margin:0 auto}
+header{padding-block:44px 8px}
+.eyebrow{font:500 12px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--red)}
+h1{font:800 clamp(30px,5vw,46px)/1.1 var(--display);margin:10px 0 12px;text-wrap:balance}
+h2{font:700 24px/1.2 var(--display);margin:0 0 6px;text-wrap:balance}
+h3{font:700 18px var(--display);margin:0}
+p{margin:0}
+.lede{color:var(--muted);max-width:68ch}
+section{padding-block:36px 0;display:flex;flex-direction:column;gap:14px}
+.sub{color:var(--muted);max-width:68ch}
+code,.mono{font-family:var(--mono);font-size:.88em}
+code{background:var(--panel2);padding:1px 5px;border-radius:4px}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+.erd{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px}
+.erd svg{display:block;width:1230px;max-width:none;height:auto}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;min-width:0}
+.note b{color:var(--fg)}
+.note p{color:var(--muted);font-size:14px}
+.note h3{font-size:15px;margin-bottom:4px}
+.q{border-color:#5a2a2d;background:var(--red-soft)}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);background:var(--panel2)}
+tr:last-child td{border-bottom:0}
+td.c{font-family:var(--mono);font-size:13px;white-space:nowrap}
+td.t{font-family:var(--mono);font-size:12.5px;color:var(--muted);white-space:nowrap}
+td.n{color:var(--muted);min-width:220px}
+.k{font:500 10.5px var(--mono);padding:1px 6px;border-radius:4px;white-space:nowrap}
+.k.pk{background:var(--red);color:#fff}
+.k.fk{background:#24364a;color:var(--fk)}
+.k.uq{background:#3b3220;color:var(--amber)}
+.tdef{display:flex;flex-direction:column;gap:8px;padding-top:22px}
+.tdef .hd{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px}
+.tdef .hd h3{font-family:var(--mono);font-weight:500;font-size:17px}
+.tdef .grp{font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.tdef .desc{color:var(--muted);font-size:14px;max-width:72ch}
+.st{display:inline-block;font:500 12px var(--mono);padding:2px 8px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);white-space:nowrap}
+.st.home{border-color:#2f6b4a;color:#7fd3a3}.st.explore{border-color:#30507a;color:#8fb3d9}.st.watchlist{border-color:#6b5420;color:var(--amber)}
+.st.history{border-color:#55406e;color:#c5a8e8}.st.hidden{color:var(--muted)}.st.removed{border-color:#6e2a2e;color:#f08a8e}
+pre{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;font:13px/1.55 var(--mono);color:#d9d7d2}
+.kw{color:var(--red)}.cm{color:var(--muted)}
+ul.plain{margin:0;padding-left:18px;color:var(--muted)}
+ul.plain li{margin:4px 0}
+nav.toc{display:flex;flex-wrap:wrap;gap:8px;padding-top:6px}
+nav.toc a{color:var(--fg);text-decoration:none;font-size:13px;border:1px solid var(--line);border-radius:999px;padding:4px 12px;background:var(--panel)}
+nav.toc a:hover,nav.toc a:focus-visible{border-color:var(--red);outline:none}
+footer{padding-top:40px;color:var(--muted);font-size:13px}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Database design · draft v2 for review · Supabase</div>
+  <h1>What to Watch schema</h1>
+  <p class="lede">Eleven tables that back the Home, Explore and Watchlist screens. A title's details live once in the catalogue, where it can be watched lives in availability, and which section it sits in lives in a single status per title, so a card can never show up in two places at once.</p>
+  <nav class="toc" aria-label="Sections">
+    <a href="#erd">Diagram</a><a href="#states">Sections and moves</a><a href="#filters">Filters</a><a href="#tables">Table definitions</a><a href="#assumptions">Assumptions</a>
+  </nav>
+</header>
+
+<section id="erd">
+  <h2>Entity relationship diagram</h2>
+  <p class="sub">Crow's foot notation. A single bar marks the "one" side, the three-pronged foot marks "many", and a circle means the link is optional. Scroll sideways on a phone.</p>
+  <div class="legend">
+    <span><i class="sw" style="background:var(--red)"></i>Core title</span>
+    <span><i class="sw" style="background:#4a4f58"></i>Catalogue details</span>
+    <span><i class="sw" style="background:#2c4a63"></i>Where to watch</span>
+    <span><i class="sw" style="background:#4d3b63"></i>Your lists</span>
+    <span><span class="k pk">PK</span>primary key</span>
+    <span><span class="k fk">FK</span>foreign key</span>
+  </div>
+  <div class="erd"><svg id="erdSvg" viewBox="0 0 1230 740" role="img" aria-label="Entity relationship diagram of the What to Watch database"></svg></div>
+</section>
+
+<section id="states">
+  <h2>Sections and how a title moves</h2>
+  <p class="sub"><code>user_title.status</code> is the one place a title's section is stored. The primary key <code>(user_id, title_id)</code> means each title has exactly one status, which is the "one section at a time" rule from your brief. Every move also writes a row to <code>title_status_event</code>, which is what Undo reads.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Status</th><th>Shown on</th><th>Buttons on the card</th><th>Moves to</th></tr></thead>
+    <tbody>
+      <tr><td><span class="st home">home</span></td><td>Home · Movies or Series tab</td><td>Watched, Hide</td><td><span class="st history">history</span> <span class="st hidden">hidden</span></td></tr>
+      <tr><td><span class="st explore">explore</span></td><td>Explore · Movies or Series tab</td><td>Add to Watchlist, Watched, Remove</td><td><span class="st watchlist">watchlist</span> <span class="st history">history</span> <span class="st removed">removed</span></td></tr>
+      <tr><td><span class="st watchlist">watchlist</span></td><td>Watchlist · Movies or Series tab</td><td>Mark downloaded</td><td><span class="st home">home</span>, and a local drive row is added to availability</td></tr>
+      <tr><td><span class="st history">history</span></td><td>Watchlist · History tab</td><td>Rate on Letterboxd</td><td>Stays here</td></tr>
+      <tr><td><span class="st hidden">hidden</span></td><td>Nowhere, listed under the filter sheet</td><td>Unhide</td><td><span class="st home">home</span></td></tr>
+      <tr><td><span class="st removed">removed</span></td><td>Nowhere. This is the block list.</td><td>None</td><td>Stays here, so the recommender never suggests it again</td></tr>
+    </tbody>
+  </table></div>
+  <div class="grid2">
+    <div class="note"><h3>Movies vs Series tabs</h3><p>Every page filters on <code>title.title_type</code>. There's no separate table for series in v1.</p></div>
+    <div class="note"><h3>Home needs a source</h3><p>A title can only be <b>home</b> while it's on a local drive, or on a service you subscribe to <b>in South Africa</b> (<code>region_code = 'ZA'</code>). Explore only suggests titles with neither. The app (or a trigger) enforces this.</p></div>
+    <div class="note"><h3>Automatic move to Home</h3><p>The availability sync reads per-country streaming data (TMDB watch providers, which come from JustWatch). When a Watchlist or Explore title shows up on Netflix South Africa, or another of your services there, it moves to <b>home</b> on its own and is logged as a <code>sync</code> move. Rows for other countries are stored but ignored.</p></div>
+  </div>
+</section>
+
+<section id="filters">
+  <h2>Filters map to columns</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Filter</th><th>Column</th><th>Index</th></tr></thead>
+    <tbody>
+      <tr><td>Year range</td><td class="c">title.release_year</td><td class="t">ix_title_type_year</td></tr>
+      <tr><td>Genre</td><td class="c">title_genre.genre_id</td><td class="t">ix_title_genre_genre</td></tr>
+      <tr><td>Location (streaming or local)</td><td class="c">title_availability.source_type</td><td class="t">ix_avail_source</td></tr>
+      <tr><td>Minimum IMDb</td><td class="c">title.imdb_rating</td><td class="t">ix_title_imdb</td></tr>
+      <tr><td>Minimum Rotten Tomatoes</td><td class="c">title.rt_score</td><td class="t">ix_title_rt</td></tr>
+    </tbody>
+  </table></div>
+  <p class="sub">Example: the Home movies tab, local drive only, 2020 or later, IMDb 7.5 and up.</p>
+<pre><span class="kw">SELECT</span> t.*
+<span class="kw">FROM</span>   user_title ut
+<span class="kw">JOIN</span>   title t <span class="kw">ON</span> t.title_id = ut.title_id
+<span class="kw">WHERE</span>  ut.user_id = :me
+  <span class="kw">AND</span>  ut.status = <span class="kw">'home'</span>
+  <span class="kw">AND</span>  t.title_type = <span class="kw">'movie'</span>
+  <span class="kw">AND</span>  t.release_year <span class="kw">BETWEEN</span> 2020 <span class="kw">AND</span> 2026
+  <span class="kw">AND</span>  t.imdb_rating &gt;= 7.5
+  <span class="kw">AND</span>  <span class="kw">EXISTS</span> (<span class="kw">SELECT</span> 1 <span class="kw">FROM</span> title_availability a
+               <span class="kw">WHERE</span> a.title_id = t.title_id <span class="kw">AND</span> a.source_type = <span class="kw">'local'</span>)
+<span class="kw">ORDER BY</span> t.imdb_rating <span class="kw">DESC</span>;  <span class="cm">-- add EXISTS on title_genre for a genre filter</span></pre>
+</section>
+
+<section id="tables">
+  <h2>Table definitions</h2>
+  <p class="sub">PostgreSQL types for Supabase. The script also turns on row-level security, so each person only sees their own lists and the catalogue is read-only from the app. The full script is saved next to this page as <code>what-to-watch-schema.sql</code>. Sizes are starting points and easy to change.</p>
+  <div id="defs"></div>
+</section>
+
+<section id="assumptions">
+  <h2>Assumptions to confirm</h2>
+  <div class="grid2">
+    <div class="note"><h3>One household, room for profiles</h3><p>I assumed one shared list. Status still hangs off <code>app_user</code>, which is tied to a Supabase sign-in, so adding separate profiles later is a new sign-in, not a redesign.</p></div>
+    <div class="note"><h3>Series are a single title</h3><p>No seasons or episodes. Watched means the whole series. If you want to track seasons, a <code>season</code> table under <code>title</code> slots in cleanly.</p></div>
+    <div class="note"><h3>A title can be in several places</h3><p>Dune could be on Max and on your drive. Availability allows many rows. The card shows local first, then the service with the lowest <code>display_order</code>.</p></div>
+    <div class="note"><h3>Scores are cached</h3><p>IMDb and Rotten Tomatoes scores are copied in from a data source and refreshed on a schedule. Either can be empty when a title has no score yet.</p></div>
+    <div class="note"><h3>Letterboxd links</h3><p>Stored per title when known, otherwise the app builds a Letterboxd search link. Letterboxd covers films well but few series.</p></div>
+    <div class="note"><h3>Nothing is deleted</h3><p>Removed titles keep their row forever so the block list holds. Hidden is reversible.</p></div>
+  </div>
+  <div class="grid2">
+    <div class="note q"><h3>Decided: hosted on Supabase</h3><p>User ids are Supabase Auth UUIDs, and row-level security policies are in the script.</p></div>
+    <div class="note q"><h3>Decided: region-aware auto move</h3><p>Streaming availability is stored per country. Only South Africa rows on services you subscribe to can move a title to Home automatically.</p></div>
+  </div>
+</section>
+
+<footer>Draft v2, 26 November 2026, updated for Supabase and South African streaming availability. Built from your app brief and the current mockup. Nothing has been created in a database yet.</footer>
+</div>
+
+<script>
+// Column: [name, type, key, nullable, note]
+const T={
+ title:{x:320,y:160,w:250,grp:"core",label:"Catalogue",desc:"One row per movie or series. Holds everything the card shows except genres, cast and where to watch.",cols:[
+  ["title_id","BIGINT identity","PK",0,"Surrogate key."],
+  ["title_type","title_type enum","",0,"movie or series. Drives the Movies and Series tabs."],
+  ["name","VARCHAR(300)","",0,""],
+  ["release_year","SMALLINT","",0,"Year filter."],
+  ["end_year","SMALLINT","",1,"Series only, empty while still running."],
+  ["synopsis","VARCHAR(400)","",0,"CHECK limits it to 50 words."],
+  ["poster_url","VARCHAR(1000)","",1,"Card image."],
+  ["imdb_id","VARCHAR(12)","UQ",1,"e.g. tt15239678. Used to fetch scores."],
+  ["tmdb_id","INTEGER","UQ",1,"Unique together with title_type. Used for images, cast and recommendations."],
+  ["imdb_rating","NUMERIC(3,1)","",1,"0.0 to 10.0."],
+  ["rt_score","SMALLINT","",1,"0 to 100 percent. 60 and up shows the fresh tomato."],
+  ["letterboxd_url","VARCHAR(500)","",1,"History tab link. Search link is the fallback."],
+  ["scores_updated_at","TIMESTAMPTZ","",1,"When scores were last refreshed. Plus created_at and updated_at."]]},
+ genre:{x:20,y:20,w:230,grp:"cat",label:"Catalogue",desc:"Lookup list of genre names used by the genre filter.",cols:[
+  ["genre_id","SMALLINT identity","PK",0,""],
+  ["name","VARCHAR(50)","UQ",0,"e.g. Sci-Fi, Drama."]]},
+ title_genre:{x:20,y:160,w:230,grp:"cat",label:"Catalogue",desc:"Links titles to genres. The two lowest ranks are the two genres shown on the card.",cols:[
+  ["title_id","BIGINT","PK FK",0,"→ title. Cascade delete."],
+  ["genre_id","SMALLINT","PK FK",0,"→ genre."],
+  ["rank","SMALLINT","",0,"1 = most applicable. Unique per title."]]},
+ title_cast:{x:20,y:330,w:230,grp:"cat",label:"Catalogue",desc:"Links titles to actors in billing order. Billing 1 and 2 are the top two actors on the card.",cols:[
+  ["title_id","BIGINT","PK FK",0,"→ title. Cascade delete."],
+  ["person_id","BIGINT","PK FK",0,"→ person."],
+  ["billing_order","SMALLINT","",0,"1 = top billed. Unique per title."],
+  ["character_name","VARCHAR(200)","",1,""]]},
+ person:{x:20,y:520,w:230,grp:"cat",label:"Catalogue",desc:"Actors, stored once and shared across titles.",cols:[
+  ["person_id","BIGINT identity","PK",0,""],
+  ["name","VARCHAR(200)","",0,""],
+  ["tmdb_id","INTEGER","UQ",1,""]]},
+ title_availability:{x:650,y:160,w:240,grp:"src",label:"Where to watch",desc:"Each place a title can be watched. Exactly one of service_id or drive_id is filled, matching source_type.",cols:[
+  ["availability_id","BIGINT identity","PK",0,""],
+  ["title_id","BIGINT","FK",0,"→ title. Cascade delete."],
+  ["source_type","source_type enum","",0,"streaming or local. Location filter."],
+  ["service_id","SMALLINT","FK",1,"→ streaming_service, when streaming."],
+  ["drive_id","SMALLINT","FK",1,"→ local_drive, when local."],
+  ["file_path","VARCHAR(1000)","",1,"Local only."],
+  ["watch_url","VARCHAR(1000)","",1,"Streaming deep link."],
+  ["region_code","CHAR(2)","",1,"Country, e.g. ZA. Required for streaming rows. Only your region counts for Home."],
+  ["last_checked_at","TIMESTAMPTZ","",0,"Last time a sync confirmed it."]]},
+ streaming_service:{x:650,y:420,w:240,grp:"src",label:"Where to watch",desc:"Your streaming services and their logos. Services are still placeholders until you confirm yours.",cols:[
+  ["service_id","SMALLINT identity","PK",0,""],
+  ["name","VARCHAR(100)","UQ",0,"e.g. Netflix."],
+  ["logo_url","VARCHAR(1000)","",1,""],
+  ["is_subscribed","BOOLEAN","",0,"Turn a service off without losing history."],
+  ["display_order","SMALLINT","",0,"Which logo wins when a title is in several places."]]},
+ local_drive:{x:650,y:600,w:240,grp:"src",label:"Where to watch",desc:"Your hard drives. The drive icon on a card comes from here.",cols:[
+  ["drive_id","SMALLINT identity","PK",0,""],
+  ["name","VARCHAR(100)","UQ",0,"e.g. Media HDD."],
+  ["volume_label","VARCHAR(100)","",1,""],
+  ["last_scanned_at","TIMESTAMPTZ","",1,""]]},
+ app_user:{x:970,y:20,w:240,grp:"usr",label:"Your lists",desc:"Who the lists belong to. One row today.",cols:[
+  ["user_id","UUID","PK FK",0,"→ auth.users in Supabase. One row per sign-in."],
+  ["display_name","VARCHAR(100)","",0,""],
+  ["region_code","CHAR(2)","",0,"Default ZA. Which country's streaming catalogue counts."],
+  ["letterboxd_username","VARCHAR(100)","",1,"Optional, for profile links."],
+  ["created_at","TIMESTAMPTZ","",0,""]]},
+ user_title:{x:970,y:200,w:240,grp:"usr",label:"Your lists",desc:"The section each title is in. One row per user per title, so a title can never be in two sections.",cols:[
+  ["user_id","UUID","PK FK",0,"→ app_user."],
+  ["title_id","BIGINT","PK FK",0,"→ title."],
+  ["status","title_status enum","",0,"home, explore, watchlist, history, hidden or removed."],
+  ["status_changed_at","TIMESTAMPTZ","",0,"Sort order inside a section."],
+  ["added_at","TIMESTAMPTZ","",0,"First time the title entered the app."],
+  ["watched_at","TIMESTAMPTZ","",1,"Required when status is history."],
+  ["recommended_at","TIMESTAMPTZ","",1,"When it first appeared in Explore."],
+  ["recommendation_reason","VARCHAR(300)","",1,"e.g. \"Because you watched Dune\"."]]},
+ title_status_event:{x:970,y:460,w:240,grp:"usr",label:"Your lists",desc:"A log of every move between sections. Powers Undo and lets you see what happened to a title.",cols:[
+  ["event_id","BIGINT identity","PK",0,""],
+  ["user_id","UUID","FK",0,"With title_id, → user_title."],
+  ["title_id","BIGINT","FK",0,""],
+  ["from_status","title_status enum","",1,"Empty when the title first arrives."],
+  ["to_status","title_status enum","",0,""],
+  ["action","VARCHAR(20)","",0,"watched, hide, unhide, watchlist, remove, downloaded, sync or undo."],
+  ["changed_at","TIMESTAMPTZ","",0,""]]}
+};
+// one → many. o = the one side is optional.
+const R=[
+ {p:[[135,96],[135,160]]},
+ {p:[[320,208],[250,208]]},
+ {p:[[320,390],[250,390]]},
+ {p:[[135,520],[135,446]]},
+ {p:[[570,208],[650,208]]},
+ {p:[[770,420],[770,376]],o:1},
+ {p:[[890,658],[920,658],[920,300],[890,300]],o:1},
+ {p:[[445,160],[445,120],[940,120],[940,260],[970,260]]},
+ {p:[[1090,156],[1090,200]]},
+ {p:[[1090,396],[1090,460]]}
+];
+const GC={core:"#e3393f",cat:"#4a4f58",src:"#2c4a63",usr:"#4d3b63"};
+const HDR=30,ROW=20,PAD=6;
+const short=t=>/enum/.test(t)?"enum":t.split(/[ (]/)[0].toLowerCase();
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let s="";
+for(const r of R){
+  const p=r.p, d=s=>s.map(q=>q.join(",")).join(" ");
+  s+=`<polyline points="${d(p)}" fill="none" stroke="#8a8f99" stroke-width="1.5"/>`;
+  // many end
+  const [ex,ey]=p[p.length-1],[qx,qy]=p[p.length-2];let L=Math.hypot(ex-qx,ey-qy),ux=(ex-qx)/L,uy=(ey-qy)/L,nx=-uy,ny=ux;
+  const bx=ex-ux*13,by=ey-uy*13;
+  s+=`<path d="M${bx},${by}L${ex+nx*7},${ey+ny*7}M${bx},${by}L${ex},${ey}M${bx},${by}L${ex-nx*7},${ey-ny*7}M${ex-ux*17+nx*7},${ey-uy*17+ny*7}L${ex-ux*17-nx*7},${ey-uy*17-ny*7}" stroke="#c9ccd2" stroke-width="1.5" fill="none"/>`;
+  // one end
+  const [sx,sy]=p[0],[tx,ty]=p[1];L=Math.hypot(tx-sx,ty-sy);ux=(tx-sx)/L;uy=(ty-sy)/L;nx=-uy;ny=ux;
+  s+=`<path d="M${sx+ux*7+nx*7},${sy+uy*7+ny*7}L${sx+ux*7-nx*7},${sy+uy*7-ny*7}" stroke="#c9ccd2" stroke-width="1.5"/>`;
+  s+= r.o ? `<circle cx="${sx+ux*17}" cy="${sy+uy*17}" r="4.5" fill="#222428" stroke="#c9ccd2" stroke-width="1.5"/>`
+          : `<path d="M${sx+ux*12+nx*7},${sy+uy*12+ny*7}L${sx+ux*12-nx*7},${sy+uy*12-ny*7}" stroke="#c9ccd2" stroke-width="1.5"/>`;
+}
+for(const [name,t] of Object.entries(T)){
+  const h=HDR+t.cols.length*ROW+PAD, c=GC[t.grp];
+  s+=`<g><rect x="${t.x}" y="${t.y}" width="${t.w}" height="${h}" rx="8" fill="#1d1f23" stroke="${t.grp==="core"?c:"#454a52"}" stroke-width="${t.grp==="core"?2:1}"/>`;
+  s+=`<path d="M${t.x},${t.y+HDR}V${t.y+8}a8,8 0 0 1 8,-8H${t.x+t.w-8}a8,8 0 0 1 8,8V${t.y+HDR}Z" fill="${c}"/>`;
+  s+=`<text x="${t.x+12}" y="${t.y+20}" fill="#fff" font-family="IBM Plex Mono,monospace" font-size="13" font-weight="500">${name}</text>`;
+  t.cols.forEach((col,i)=>{const y=t.y+HDR+i*ROW+14,[cn,ty,k]=col;
+    if(i%2)s+=`<rect x="${t.x+1}" y="${y-14}" width="${t.w-2}" height="${ROW}" fill="#23262b"/>`;
+    const pk=k.includes("PK"),fk=k.includes("FK");
+    const badge=pk?["PK","#e3393f","#fff"]:fk?["FK","#24364a","#8fb3d9"]:null;
+    if(badge)s+=`<rect x="${t.x+8}" y="${y-11}" width="22" height="14" rx="3" fill="${badge[1]}"/><text x="${t.x+19}" y="${y}" text-anchor="middle" fill="${badge[2]}" font-family="IBM Plex Mono,monospace" font-size="9" font-weight="500">${badge[0]}</text>`;
+    if(pk&&fk)s+=`<circle cx="${t.x+33}" cy="${y-4}" r="2.5" fill="#8fb3d9"/>`;
+    s+=`<text x="${t.x+38}" y="${y}" fill="${pk?"#ffd9da":"#e6e5e2"}" font-family="IBM Plex Mono,monospace" font-size="11">${cn}</text>`;
+    s+=`<text x="${t.x+t.w-10}" y="${y}" text-anchor="end" fill="#8d919a" font-family="IBM Plex Mono,monospace" font-size="10">${short(ty)}</text>`;
+  });
+  s+=`</g>`;
+}
+document.getElementById("erdSvg").innerHTML=s;
+
+const order=["title","genre","title_genre","person","title_cast","streaming_service","local_drive","title_availability","app_user","user_title","title_status_event"];
+document.getElementById("defs").innerHTML=order.map(n=>{const t=T[n];
+  const rows=t.cols.map(([cn,ty,k,nl,note])=>{
+    const keys=k.split(" ").filter(Boolean).map(x=>`<span class="k ${x.toLowerCase()}">${x}</span>`).join(" ");
+    return `<tr><td class="c">${cn}</td><td class="t">${esc(ty)}</td><td>${keys}</td><td class="t">${nl?"yes":"no"}</td><td class="n">${esc(note)}</td></tr>`}).join("");
+  return `<div class="tdef" id="t-${n}"><div class="hd"><h3>${n}</h3><span class="grp">${t.label}</span></div><p class="desc">${esc(t.desc)}</p>
+  <div class="tw"><table><thead><tr><th>Column</th><th>Type</th><th>Key</th><th>Null</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table></div></div>`}).join("");
+</script>

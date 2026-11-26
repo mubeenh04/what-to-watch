@@ -1,0 +1,473 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>What to Watch</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: desktop = design notes beside a phone frame; phone = the app fills the screen. Single dark look by design (dark grey + red). */
+:root{
+  --bg:#141416;          /* page behind the phone */
+  --app:#1b1b1e;         /* app background, dark grey */
+  --surface:#242428;     /* cards */
+  --surface-2:#2e2e33;   /* chips, inputs */
+  --line:#3a3a40;
+  --text:#eeeef0;
+  --muted:#9c9ca5;
+  --red:#e3303c;
+  --red-deep:#9e1b25;
+  --red-tint:rgba(227,48,60,.14);
+  --imdb:#f5c518;
+  --ok:#4fbf7a;
+  --lb:#ff8000;
+  --f-display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--f-body);font-size:14px;margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:inherit}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+
+/* ---------- desktop stage ---------- */
+.stage{min-height:100%;display:flex;gap:56px;align-items:center;justify-content:center;
+  padding-block:32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.notes{max-width:360px;display:flex;flex-direction:column;gap:16px}
+.notes h1{font-family:var(--f-display);font-stretch:72%;font-weight:800;font-size:44px;line-height:.95;margin:0;letter-spacing:.01em;text-transform:uppercase;text-wrap:balance}
+.notes h1 span{color:var(--red)}
+.notes p{color:var(--muted);line-height:1.55;margin:0}
+.notes ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:9px;line-height:1.45}
+.notes li{color:var(--muted)}
+.notes li b{color:var(--text)}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted)}
+.flow span{background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:3px 7px;color:var(--text)}
+.jump{display:flex;flex-wrap:wrap;gap:8px}
+.jump button{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-weight:600;font-size:13px}
+.jump button:hover{border-color:var(--red)}
+.tiny{font-size:12px;color:var(--muted)}
+
+.phone{width:390px;height:844px;border-radius:48px;background:#000;padding:10px;box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 0 1px #2a2a2e;flex:none;position:relative}
+.screen{position:relative;width:100%;height:100%;border-radius:38px;overflow:hidden;background:var(--app);display:flex;flex-direction:column}
+.statusbar{height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 26px;font-weight:600;font-size:14px}
+.statusbar .notch{width:110px;height:30px;background:#000;border-radius:20px}
+
+@media (max-width:860px){
+  .stage{display:block;padding:0;height:100%}
+  .notes{display:none}
+  .phone{width:100%;height:100%;border-radius:0;padding:0;box-shadow:none}
+  .screen{border-radius:0}
+  .statusbar{display:none}
+}
+
+/* ---------- app header & tabs ---------- */
+.appbar{flex:none;padding:6px 18px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:46px}
+.brand{font-family:var(--f-display);font-stretch:70%;font-weight:850;font-size:28px;letter-spacing:.02em;text-transform:uppercase;line-height:1}
+.brand i{font-style:normal;color:var(--red)}
+.iconbtn{position:relative;width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center}
+.iconbtn svg{width:20px;height:20px}
+.iconbtn .dot{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--red);font-size:11px;font-weight:700;display:grid;place-items:center}
+.sub{flex:none;margin:4px 18px 0;color:var(--muted);font-size:12.5px;line-height:1.4}
+.tabs{flex:none;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;margin:12px 18px 0;border-bottom:1px solid var(--line)}
+.tab{background:none;border:0;padding:12px 0 11px;font-family:var(--f-display);font-stretch:85%;font-weight:700;font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);position:relative;display:flex;justify-content:center;gap:8px;align-items:center}
+.tab .n{font-family:var(--f-body);font-weight:600;font-size:11px;letter-spacing:0;background:var(--surface-2);border-radius:10px;padding:1px 7px;color:var(--muted)}
+.tab[aria-selected="true"]{color:var(--text)}
+.tab[aria-selected="true"]::after{content:"";position:absolute;left:18%;right:18%;bottom:-1px;height:3px;border-radius:3px 3px 0 0;background:var(--red)}
+.tab[aria-selected="true"] .n{background:var(--red-tint);color:#ff8a92}
+
+.activebar{flex:none;display:flex;gap:6px;overflow-x:auto;padding:12px 18px 2px;scrollbar-width:none}
+.activebar::-webkit-scrollbar{display:none}
+.achip{flex:none;display:flex;align-items:center;gap:6px;background:var(--red-tint);color:#ffb3b8;border:1px solid rgba(227,48,60,.35);border-radius:999px;padding:5px 8px 5px 11px;font-size:12px;font-weight:600}
+.achip button{background:none;border:0;padding:0;width:16px;height:16px;display:grid;place-items:center;color:#ffb3b8}
+.achip.clear{background:none;border-color:var(--line);color:var(--muted);padding:5px 11px}
+
+/* ---------- list ---------- */
+.list{flex:1;overflow-y:auto;padding:12px 14px 20px;display:flex;flex-direction:column;gap:14px;scrollbar-width:thin}
+.empty{margin:40px 10px;text-align:center;color:var(--muted);line-height:1.5}
+.empty b{display:block;color:var(--text);font-family:var(--f-display);font-stretch:80%;font-size:20px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+.empty button{margin-top:14px;background:var(--red);border:0;border-radius:10px;padding:10px 16px;font-weight:700}
+
+.card{flex:none;background:var(--surface);border-radius:16px;overflow:hidden;display:grid;grid-template-columns:112px 1fr;transition:opacity .25s,transform .25s}
+.card.leaving{opacity:0;transform:translateX(-30px)}
+.card.leaving.right{transform:translateX(30px)}
+.poster{position:relative;min-height:168px;display:flex;flex-direction:column;justify-content:flex-end;padding:10px;overflow:hidden}
+.poster::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(115deg,rgba(255,255,255,.05) 0 2px,transparent 2px 9px);mix-blend-mode:overlay}
+.poster .pt{position:relative;font-family:var(--f-display);font-stretch:66%;font-weight:850;font-size:19px;line-height:.92;text-transform:uppercase;text-shadow:0 2px 10px rgba(0,0,0,.5);word-break:break-word}
+.poster .py{position:relative;font-size:10px;font-weight:600;letter-spacing:.14em;opacity:.8;margin-top:4px}
+.poster .tag{position:absolute;top:8px;left:8px;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:6px;padding:3px 6px;background:rgba(0,0,0,.55);color:#fff}
+.card.history .poster{filter:saturate(.4) brightness(.85)}
+.body{min-width:0;padding:12px 12px 10px;display:flex;flex-direction:column;gap:8px}
+.title{font-family:var(--f-display);font-stretch:88%;font-weight:750;font-size:17px;line-height:1.1;margin:0;text-wrap:balance}
+.title .yr{font-family:var(--f-body);font-weight:500;font-size:12px;color:var(--muted);margin-left:4px}
+.genres{display:flex;gap:5px;flex-wrap:wrap}
+.genre{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:2px 6px}
+.syn{margin:0;color:#c9c9cf;font-size:12.5px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
+.card.open .syn{-webkit-line-clamp:unset}
+.cast{font-size:12px;color:var(--muted)}
+.cast b{color:var(--text);font-weight:600}
+.meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px}
+.score{display:flex;align-items:center;gap:5px;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
+.imdb{background:var(--imdb);color:#000;font-family:var(--f-display);font-stretch:80%;font-weight:900;font-size:11px;border-radius:4px;padding:2px 4px;line-height:1}
+.rt svg{width:18px;height:18px;display:block}
+.where{margin-left:auto;display:flex;align-items:center;gap:6px}
+.svc{height:22px;min-width:22px;border-radius:5px;padding:0 6px;display:grid;place-items:center;font-family:var(--f-display);font-stretch:75%;font-weight:850;font-size:11px;letter-spacing:.02em;white-space:nowrap}
+.svc.local{background:var(--surface-2);border:1px solid var(--line);color:var(--text);gap:4px;display:flex;align-items:center}
+.svc.local svg{width:14px;height:14px}
+.watchedon{font-size:12px;color:var(--muted)}
+.actions{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px;margin-top:4px}
+.act{display:flex;align-items:center;justify-content:center;gap:5px;border-radius:9px;padding:8px 2px;font-size:12.5px;font-weight:700;border:1px solid var(--line);background:var(--surface-2);text-decoration:none;white-space:nowrap}
+.act svg{width:15px;height:15px;flex:none}
+.act.primary{background:var(--red);border-color:var(--red)}
+.act.watch:hover{border-color:rgba(79,191,122,.6);color:#9be3b6}
+.act.danger:hover,.act.hide:hover{border-color:var(--red);color:#ffb3b8}
+.act.lb{border-color:rgba(255,128,0,.45);color:#ffc08a}
+.act.lb:hover{background:rgba(255,128,0,.12)}
+.act.dl{background:rgba(79,191,122,.14);border-color:rgba(79,191,122,.5);color:#9be3b6}
+.explore .actions{grid-template-columns:1fr 1fr;grid-auto-flow:row}
+.explore .actions .primary{grid-column:1/-1}
+
+/* ---------- bottom nav ---------- */
+.bottomnav{flex:none;display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);background:#19191c;padding:6px 8px calc(10px + env(safe-area-inset-bottom,0px))}
+.nav{background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.04em;position:relative}
+.nav svg{width:23px;height:23px}
+.nav[aria-current="page"]{color:var(--text)}
+.nav[aria-current="page"] svg{color:var(--red)}
+.nav .badge{position:absolute;top:1px;left:calc(50% + 6px);min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--red);color:#fff;font-size:10px;display:grid;place-items:center}
+
+/* ---------- filter sheet ---------- */
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .25s;z-index:5}
+.sheet{position:absolute;left:0;right:0;bottom:0;max-height:88%;background:#202024;border-radius:22px 22px 0 0;transform:translateY(102%);transition:transform .3s cubic-bezier(.2,.8,.2,1);z-index:6;display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.screen.filtering .scrim{opacity:1;pointer-events:auto}
+.screen.filtering .sheet{transform:none}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:10px auto 0;flex:none}
+.sheethead{flex:none;display:flex;align-items:center;justify-content:space-between;padding:10px 20px 6px}
+.sheethead h2{margin:0;font-family:var(--f-display);font-stretch:75%;font-weight:850;font-size:24px;text-transform:uppercase;letter-spacing:.03em}
+.linkbtn{background:none;border:0;color:var(--red);font-weight:700;padding:6px}
+.sheetbody{overflow-y:auto;padding:4px 20px 12px;display:flex;flex-direction:column;gap:22px}
+.fgroup{display:flex;flex-direction:column;gap:10px}
+.flabel{display:flex;justify-content:space-between;align-items:baseline;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.flabel output{font-size:13px;letter-spacing:0;text-transform:none;color:var(--text);font-variant-numeric:tabular-nums}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:600}
+.chip[aria-pressed="true"]{background:var(--red);border-color:var(--red)}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--surface-2);border-radius:11px;padding:3px;border:1px solid var(--line)}
+.seg button{border:0;background:none;border-radius:8px;padding:9px 0;font-weight:600;font-size:13px;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:6px}
+.seg button svg{width:15px;height:15px}
+.seg button[aria-pressed="true"]{background:var(--app);color:var(--text)}
+.years{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;color:var(--muted)}
+select{appearance:none;background:var(--surface-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239c9ca5' stroke-width='3'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;border:1px solid var(--line);border-radius:10px;color:var(--text);padding:10px 12px;font:inherit;font-weight:600;width:100%}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:2px;background:linear-gradient(90deg,var(--red) var(--p,0%),var(--line) var(--p,0%))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;border:4px solid var(--red);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:4px solid var(--red);cursor:pointer}
+.scorelabel{display:flex;align-items:center;gap:6px}
+.sheetfoot{flex:none;padding:12px 20px calc(18px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);display:grid}
+.primarybtn{background:var(--red);border:0;border-radius:12px;padding:14px;font-weight:700;font-size:15px}
+.hiddenrow{display:flex;justify-content:space-between;align-items:center;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:10px 12px;font-size:13px}
+.hiddenrow button{background:none;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-weight:600;font-size:12px}
+
+/* ---------- toast ---------- */
+.toast{position:absolute;left:14px;right:14px;bottom:84px;background:#f1f1f3;color:#141416;border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:600;font-size:13px;transform:translateY(20px);opacity:0;pointer-events:none;transition:.25s;z-index:4;margin-bottom:env(safe-area-inset-bottom,0px)}
+.toast.show{transform:none;opacity:1;pointer-events:auto}
+.toast button{background:none;border:0;color:var(--red-deep);font-weight:800;text-transform:uppercase;letter-spacing:.06em;font-size:12px;flex:none}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="stage">
+  <aside class="notes">
+    <h1>What to <span>Watch</span></h1>
+    <p>Clickable mockup for Android and iOS. Everything on the phone works. Each title lives in exactly one place, and every button moves it to the next one.</p>
+    <div class="flow"><span>Explore</span>→<span>Watchlist</span>→<span>Home</span>→<span>History</span></div>
+    <ul>
+      <li><b>Home.</b> What you can watch now, on streaming or your drives. Filter by year, genre, location and scores. Actions: Watched (moves to History) or Hide.</li>
+      <li><b>Explore.</b> Recommendations that aren't on your services or drives. Add to Watchlist, mark Watched, or Remove for good (it never comes back).</li>
+      <li><b>Watchlist.</b> Movies and Series to download or stream. Mark downloaded moves the title to Home. History lists what you've watched, with a link to rate it on Letterboxd.</li>
+    </ul>
+    <div class="jump">
+      <button type="button" data-jump="home">Home</button>
+      <button type="button" data-jump="filters">Filters</button>
+      <button type="button" data-jump="explore">Explore</button>
+      <button type="button" data-jump="watchlist">Watchlist</button>
+      <button type="button" data-jump="history">History</button>
+    </div>
+    <p class="tiny">Sample titles, scores and dates for layout only. Service marks are plain placeholders, not the real logos. Reload the page to reset.</p>
+  </aside>
+
+  <div class="phone">
+    <div class="screen" id="screen">
+      <div class="statusbar"><span>9:41</span><span class="notch"></span><span>●●● ▮</span></div>
+      <header class="appbar">
+        <div class="brand" id="pageTitle">What to <i>Watch</i></div>
+        <button class="iconbtn" type="button" id="filterBtn" aria-label="Filters">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+          <span class="dot" id="fcount" hidden>0</span>
+        </button>
+      </header>
+      <p class="sub" id="pageSub" hidden></p>
+      <nav class="tabs" role="tablist" id="tabs"></nav>
+      <div class="activebar" id="activebar" hidden></div>
+      <main class="list" id="list" role="tabpanel"></main>
+
+      <nav class="bottomnav" aria-label="Main">
+        <button class="nav" type="button" data-page="home" aria-current="page">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>Home</button>
+        <button class="nav" type="button" data-page="explore">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></svg>Explore</button>
+        <button class="nav" type="button" data-page="watchlist">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>Watchlist<span class="badge" id="wlBadge" hidden>0</span></button>
+      </nav>
+
+      <div class="toast" id="toast"><span id="toastmsg"></span><button type="button" id="undo">Undo</button></div>
+
+      <div class="scrim" id="scrim"></div>
+      <section class="sheet" id="sheet" aria-label="Filters">
+        <div class="grab"></div>
+        <div class="sheethead"><h2>Filters</h2><button class="linkbtn" type="button" id="reset">Reset</button></div>
+        <div class="sheetbody">
+          <div class="fgroup">
+            <div class="flabel">Year</div>
+            <div class="years">
+              <select id="yfrom" aria-label="From year"></select><span>to</span><select id="yto" aria-label="To year"></select>
+            </div>
+          </div>
+          <div class="fgroup">
+            <div class="flabel">Genre</div>
+            <div class="chips" id="genreChips"></div>
+          </div>
+          <div class="fgroup">
+            <div class="flabel">Location</div>
+            <div class="seg" id="locSeg">
+              <button type="button" data-loc="all" aria-pressed="true">All</button>
+              <button type="button" data-loc="stream" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8"/></svg>Streaming</button>
+              <button type="button" data-loc="local" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M5 13 7.5 5h9L19 13"/><circle cx="16.5" cy="16.5" r="1" fill="currentColor"/></svg>Local drive</button>
+            </div>
+          </div>
+          <div class="fgroup">
+            <div class="flabel"><span class="scorelabel"><span class="imdb">IMDb</span> minimum</span><output id="imdbOut">Any</output></div>
+            <input type="range" id="imdbMin" min="0" max="9" step="0.5" value="0" aria-label="Minimum IMDb score">
+          </div>
+          <div class="fgroup">
+            <div class="flabel"><span class="scorelabel"><span class="rt" id="rtIconSlot"></span> Rotten Tomatoes minimum</span><output id="rtOut">Any</output></div>
+            <input type="range" id="rtMin" min="0" max="100" step="5" value="0" aria-label="Minimum Rotten Tomatoes score">
+          </div>
+          <div class="hiddenrow" id="hiddenRow" hidden><span id="hiddenTxt"></span><button type="button" id="unhide">Show again</button></div>
+        </div>
+        <div class="sheetfoot"><button class="primarybtn" type="button" id="apply">Show results</button></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Every title has exactly one section: home | hidden | explore | watchlist | history | removed.
+   Buttons only ever move a title from one section to another, so it can't appear in two places. */
+const ITEMS=[
+ // ---- Home: on a streaming service or a local drive ----
+ {id:1,t:"movie",s:"home",name:"Dune: Part Two",y:2024,g:["Sci-Fi","Adventure"],syn:"Paul Atreides joins the Fremen and Chani on a path of revenge against the conspirators who destroyed his family, while visions warn him of a holy war he may be unable to stop.",cast:["Timothée Chalamet","Zendaya"],imdb:8.5,rt:92,loc:"max",c:["#c2702b","#3a1e10"]},
+ {id:2,t:"movie",s:"home",name:"The Holdovers",y:2023,g:["Comedy","Drama"],syn:"A cranky classics teacher at a New England prep school is stuck chaperoning the students with nowhere to go over Christmas break, and forms an unlikely bond with a troubled pupil and the school's grieving cook.",cast:["Paul Giamatti","Da'Vine Joy Randolph"],imdb:7.9,rt:97,loc:"local",c:["#5b6e4e","#1b2118"]},
+ {id:3,t:"movie",s:"home",name:"Oppenheimer",y:2023,g:["Biography","Drama"],syn:"The story of J. Robert Oppenheimer and the Manhattan Project, from the race to build the atomic bomb to the political reckoning that followed.",cast:["Cillian Murphy","Emily Blunt"],imdb:8.3,rt:93,loc:"prime",c:["#d9541e","#1a0c08"]},
+ {id:4,t:"movie",s:"home",name:"Past Lives",y:2023,g:["Romance","Drama"],syn:"Two childhood friends separated when one family emigrates from Seoul reunite in New York two decades later, and spend a week confronting love, destiny and the lives they didn't choose.",cast:["Greta Lee","Teo Yoo"],imdb:7.8,rt:95,loc:"netflix",c:["#5f7fa8","#141c28"]},
+ {id:6,t:"movie",s:"home",name:"Mad Max: Fury Road",y:2015,g:["Action","Adventure"],syn:"In a desert wasteland, a drifter and a rebel commander flee a tyrant across the sand in a war rig carrying his captive wives.",cast:["Tom Hardy","Charlize Theron"],imdb:8.1,rt:97,loc:"max",c:["#e0782a","#2a1206"]},
+ {id:7,t:"movie",s:"home",name:"Knives Out",y:2019,g:["Mystery","Comedy"],syn:"A famous crime novelist is found dead after his 85th birthday, and a genteel detective is hired to untangle a web of lies spun by his scheming family and devoted nurse.",cast:["Daniel Craig","Ana de Armas"],imdb:7.9,rt:97,loc:"local",c:["#8a3b3b","#1e0d0d"]},
+ {id:8,t:"movie",s:"home",name:"Everything Everywhere All at Once",y:2022,g:["Sci-Fi","Comedy"],syn:"A laundromat owner buried in a tax audit discovers she can tap into the lives of her parallel-universe selves, and must use them to stop a threat to the multiverse.",cast:["Michelle Yeoh","Ke Huy Quan"],imdb:7.8,rt:94,loc:"prime",c:["#a14fb0","#1c0d22"]},
+ {id:11,t:"series",s:"home",name:"Shōgun",y:2024,g:["Drama","History"],syn:"In feudal Japan in 1600, a powerful lord fighting for his life against his rivals finds an unexpected ally in a shipwrecked English navigator.",cast:["Hiroyuki Sanada","Cosmo Jarvis"],imdb:8.6,rt:99,loc:"disney",c:["#a2342a","#1a0907"]},
+ {id:12,t:"series",s:"home",name:"Severance",y:2022,g:["Sci-Fi","Thriller"],syn:"Office workers at a mysterious company have had their memories surgically split between work and home, until one of them starts to question what the job really is.",cast:["Adam Scott","Britt Lower"],imdb:8.7,rt:96,loc:"apple",c:["#3d6a80","#0c171c"]},
+ {id:13,t:"series",s:"home",name:"The Bear",y:2022,g:["Comedy","Drama"],syn:"A young fine-dining chef comes home to Chicago to run his late brother's chaotic sandwich shop, and tries to turn it and its crew into something better.",cast:["Jeremy Allen White","Ayo Edebiri"],imdb:8.5,rt:99,loc:"disney",c:["#3c5a8c","#0e1522"]},
+ {id:14,t:"series",s:"home",name:"Slow Horses",y:2022,g:["Thriller","Drama"],syn:"A team of disgraced MI5 agents, exiled to a dead-end office for their career-ending mistakes, keep stumbling into real spy cases under their sharp-tongued boss.",cast:["Gary Oldman","Jack Lowden"],imdb:8.1,rt:98,loc:"apple",c:["#6b6a52","#191912"]},
+ {id:16,t:"series",s:"home",name:"Dark",y:2017,g:["Sci-Fi","Mystery"],syn:"A child's disappearance in a small German town exposes the secrets of four families and a time-travel conspiracy spanning several generations.",cast:["Louis Hofmann","Lisa Vicari"],imdb:8.7,rt:95,loc:"netflix",c:["#4a5560","#0b0d10"]},
+ {id:17,t:"series",s:"home",name:"Arcane",y:2021,g:["Animation","Action"],syn:"Two sisters on opposite sides of a war between a gleaming city and its oppressed undercity are pulled into a conflict over magic and technology.",cast:["Hailee Steinfeld","Ella Purnell"],imdb:9.0,rt:100,loc:"netflix",c:["#2f7f8f","#150a20"]},
+ {id:18,t:"series",s:"home",name:"The Wire",y:2002,g:["Crime","Drama"],syn:"Baltimore's drug trade seen from both sides, as police, dealers, dockworkers, politicians and journalists navigate a city shaped by its institutions.",cast:["Dominic West","Idris Elba"],imdb:9.3,rt:94,loc:"local",c:["#7a6a3a","#17140b"]},
+ // ---- History: already watched ----
+ {id:5,t:"movie",s:"history",wd:"12 Nov",name:"Arrival",y:2016,g:["Sci-Fi","Drama"],syn:"When twelve alien craft touch down around the world, a linguist is recruited to find a way to talk to them before tensions between nations spiral into war.",cast:["Amy Adams","Jeremy Renner"],imdb:7.9,rt:94,loc:"local",c:["#7c8a8f","#16191b"]},
+ {id:15,t:"series",s:"history",wd:"3 Nov",name:"Breaking Bad",y:2008,g:["Crime","Drama"],syn:"A high school chemistry teacher facing a terminal diagnosis turns to cooking meth with a former student to secure his family's future.",cast:["Bryan Cranston","Aaron Paul"],imdb:9.5,rt:96,loc:"local",c:["#5c8a3a","#121c0b"]},
+ // ---- Watchlist: picked from Explore, still to download or stream ----
+ {id:21,t:"movie",s:"watchlist",name:"Perfect Days",y:2023,g:["Drama"],syn:"A Tokyo public-toilet cleaner finds quiet contentment in his daily routine of cassette tapes, paperbacks and photographs of trees, until a few unexpected encounters reveal more of his past.",cast:["Kōji Yakusho","Tokio Emoto"],imdb:7.9,rt:96,c:["#4f8a86","#0f1d1c"]},
+ {id:22,t:"series",s:"watchlist",name:"Andor",y:2022,g:["Sci-Fi","Drama"],syn:"A thief drawn into a growing rebellion against a galactic empire becomes a reluctant revolutionary as ordinary people are pushed to resist.",cast:["Diego Luna","Stellan Skarsgård"],imdb:8.4,rt:94,c:["#7a5a40","#1a120c"]},
+ // ---- Explore: recommendations not on your services or drives ----
+ {id:31,t:"movie",s:"explore",name:"Anatomy of a Fall",y:2023,g:["Drama","Mystery"],syn:"When a man is found dead outside his remote chalet in the French Alps, his novelist wife becomes the prime suspect, and their partially blind son is the key witness at her trial.",cast:["Sandra Hüller","Swann Arlaud"],imdb:7.7,rt:96,c:["#8c8f96","#18191c"]},
+ {id:32,t:"movie",s:"explore",name:"Godzilla Minus One",y:2023,g:["Action","Sci-Fi"],syn:"In postwar Japan, a former kamikaze pilot haunted by survivor's guilt joins a desperate civilian effort to stop a giant monster threatening to destroy what's left of the country.",cast:["Ryunosuke Kamiki","Minami Hamabe"],imdb:7.7,rt:98,c:["#3f5f86","#090f18"]},
+ {id:33,t:"movie",s:"explore",name:"The Zone of Interest",y:2023,g:["Drama","History"],syn:"The commandant of Auschwitz and his wife build an idyllic family life in a house and garden next to the camp wall.",cast:["Christian Friedel","Sandra Hüller"],imdb:7.4,rt:93,c:["#6f8a4a","#14190d"]},
+ {id:34,t:"movie",s:"explore",name:"Poor Things",y:2023,g:["Comedy","Sci-Fi"],syn:"Brought back to life by an unorthodox scientist, a young woman runs off on a whirlwind adventure across continents, hungry for the worldly experience she lacks.",cast:["Emma Stone","Mark Ruffalo"],imdb:7.8,rt:92,c:["#c97a8a","#2a1015"]},
+ {id:35,t:"series",s:"explore",name:"Fallout",y:2024,g:["Sci-Fi","Action"],syn:"Two hundred years after nuclear war, a sheltered vault dweller ventures onto the irradiated surface of Los Angeles and runs into a violent, strange and morally grey wasteland.",cast:["Ella Purnell","Walton Goggins"],imdb:8.3,rt:93,c:["#b08a2e","#1f1806"]},
+ {id:36,t:"series",s:"explore",name:"Baby Reindeer",y:2024,g:["Drama","Thriller"],syn:"A struggling comedian's small act of kindness toward a lonely woman sets off an obsessive stalking campaign that forces him to face a dark, buried trauma.",cast:["Richard Gadd","Jessica Gunning"],imdb:7.6,rt:98,c:["#a8556a","#200c12"]},
+ {id:37,t:"series",s:"explore",name:"Mr. Robot",y:2015,g:["Thriller","Crime"],syn:"A brilliant but troubled cybersecurity engineer is recruited by a mysterious anarchist to help bring down the corporation he is paid to protect.",cast:["Rami Malek","Christian Slater"],imdb:8.5,rt:94,c:["#5e1f24","#0e0607"]}
+];
+// Placeholder service marks: plain wordmarks in a house colour, not the real logos.
+const SVC={netflix:{label:"NETFLIX",bg:"#b20710",fg:"#fff"},prime:{label:"prime",bg:"#1a98ff",fg:"#fff"},disney:{label:"Disney+",bg:"#113ccf",fg:"#fff"},max:{label:"max",bg:"#002be7",fg:"#fff"},apple:{label:"tv+",bg:"#f2f2f2",fg:"#000"},local:{local:true}};
+const I={
+ hdd:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M5 13 7.5 5h9L19 13"/><circle cx="16.5" cy="16.5" r="1" fill="currentColor"/></svg>',
+ check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m5 12 5 5 9-10"/></svg>',
+ eyeoff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c5 0 9 4.5 10 7-.4 1-1.2 2.3-2.4 3.5M6.6 6.6C4.4 8 2.8 10 2 12c1 2.5 5 7 10 7 1.8 0 3.4-.6 4.8-1.4"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>',
+ plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+ ban:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/></svg>',
+ down:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg>',
+ ext:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>'
+};
+const rtIcon=fresh=>fresh
+ ?'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="14" r="8" fill="#fa320a"/><path d="M12 6c-1-2-3-3-4.5-2.5 1.2.7 1.8 1.6 2 2.6-1.4-.6-3-.4-4 .4 1.6.1 2.8.8 3.5 1.8 2.6-.8 5.5-.8 8 0 .7-1 1.9-1.7 3.5-1.8-1-.8-2.6-1-4-.4.2-1 .8-1.9 2-2.6C17 3 15 4 12 6z" fill="#00912d"/></svg>'
+ :'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15c0-4 3-8 8-8 2 0 3 1 4 0 2 1 4 4 4 8-1 3-4 5-8 5s-7-2-8-5z" fill="#0fc755"/></svg>';
+document.getElementById('rtIconSlot').innerHTML=rtIcon(true);
+
+const homeItems=()=>ITEMS.filter(i=>i.s==="home"||i.s==="hidden");
+const GENRES=[...new Set(homeItems().flatMap(i=>i.g))].sort();
+const YEARS=homeItems().map(i=>i.y);const YMIN=Math.min(...YEARS),YMAX=Math.max(...YEARS);
+const PAGES={
+ home:{tabs:[["movie","Movies"],["series","Series"]]},
+ explore:{tabs:[["movie","Movies"],["series","Series"]],sub:"Picks that aren't on your streaming services or drives."},
+ watchlist:{tabs:[["movie","Movies"],["series","Series"],["history","History"]],sub:"To download or stream. Mark it downloaded when it's ready and it moves to Home."}
+};
+const state={page:"home",tab:{home:"movie",explore:"movie",watchlist:"movie"},f:{yfrom:YMIN,yto:YMAX,genres:new Set(),loc:"all",imdb:0,rt:0}};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const byId=id=>ITEMS.find(i=>i.id===id);
+
+function passes(i){const f=state.f;
+  if(i.y<f.yfrom||i.y>f.yto)return false;
+  if(f.genres.size&&!i.g.some(g=>f.genres.has(g)))return false;
+  if(f.loc==="stream"&&i.loc==="local")return false;
+  if(f.loc==="local"&&i.loc!=="local")return false;
+  return i.imdb>=f.imdb&&i.rt>=f.rt;}
+
+// What each tab shows. One section per tab, so no title is ever listed twice.
+function rowsFor(page,tab){
+  if(page==="home")return ITEMS.filter(i=>i.s==="home"&&i.t===tab&&passes(i));
+  if(page==="explore")return ITEMS.filter(i=>i.s==="explore"&&i.t===tab);
+  if(tab==="history")return ITEMS.filter(i=>i.s==="history").sort((a,b)=>(b.order||0)-(a.order||0));
+  return ITEMS.filter(i=>i.s==="watchlist"&&i.t===tab);
+}
+
+function svcMark(k){const s=SVC[k];
+  if(s.local)return `<span class="svc local" title="On your local drive">${I.hdd}Drive</span>`;
+  return `<span class="svc" style="background:${s.bg};color:${s.fg}" title="Streaming">${s.label}</span>`;}
+
+const scores=i=>`<span class="score" title="IMDb rating"><span class="imdb">IMDb</span>${i.imdb.toFixed(1)}</span><span class="score rt" title="Rotten Tomatoes">${rtIcon(i.rt>=60)}${i.rt}%</span>`;
+const btn=(act,cls,icon,label)=>`<button type="button" class="act ${cls}" data-act="${act}">${icon}${label}</button>`;
+const lbUrl=i=>"https://letterboxd.com/search/"+encodeURIComponent(i.name)+"/";
+
+function card(i,kind){
+  let meta="",actions="",tag="";
+  if(kind==="home"){meta=scores(i)+`<span class="where">${svcMark(i.loc)}</span>`;
+    actions=btn("watched","watch",I.check,"Watched")+btn("hide","hide",I.eyeoff,"Hide");}
+  else if(kind==="explore"){meta=scores(i);tag="New to you";
+    actions=btn("watchlist","primary",I.plus,"Add to Watchlist")+btn("watched","watch",I.check,"Watched")+btn("remove","danger",I.ban,"Remove");}
+  else if(kind==="watchlist"){meta=scores(i);tag="To get";
+    actions=btn("downloaded","dl",I.down,"Mark downloaded");}
+  else {meta=`<span class="watchedon">Watched ${esc(i.wd||"today")}</span>`;tag="Watched";
+    actions=`<a class="act lb" href="${lbUrl(i)}" target="_blank" rel="noopener">Rate on Letterboxd ${I.ext}</a>`;}
+  return `<article class="card ${kind}" data-id="${i.id}">
+  <div class="poster" style="background:linear-gradient(160deg,${i.c[0]},${i.c[1]} 85%)">
+    ${tag?`<span class="tag">${tag}</span>`:""}
+    <div class="pt">${esc(i.name)}</div><div class="py">${i.y}</div>
+  </div>
+  <div class="body">
+    <h3 class="title">${esc(i.name)}<span class="yr">${i.y}</span></h3>
+    <div class="genres">${i.g.slice(0,2).map(g=>`<span class="genre">${g}</span>`).join("")}</div>
+    <p class="syn" data-toggle>${esc(i.syn)}</p>
+    <div class="cast">Starring <b>${esc(i.cast[0])}</b>, <b>${esc(i.cast[1])}</b></div>
+    <div class="meta">${meta}</div>
+    <div class="actions">${actions}</div>
+  </div></article>`;}
+
+function activeCount(){const f=state.f;let n=0;
+  if(f.yfrom!==YMIN||f.yto!==YMAX)n++; n+=f.genres.size; if(f.loc!=="all")n++; if(f.imdb>0)n++; if(f.rt>0)n++; return n;}
+
+function renderActive(){const f=state.f,bits=[];
+  if(state.page==="home"){
+    if(f.yfrom!==YMIN||f.yto!==YMAX)bits.push(["year",`${f.yfrom}–${f.yto}`]);
+    f.genres.forEach(g=>bits.push(["genre:"+g,g]));
+    if(f.loc!=="all")bits.push(["loc",f.loc==="local"?"Local drive":"Streaming"]);
+    if(f.imdb>0)bits.push(["imdb",`IMDb ${f.imdb}+`]);
+    if(f.rt>0)bits.push(["rt",`RT ${f.rt}%+`]);}
+  const bar=$("activebar");bar.hidden=!bits.length;
+  bar.innerHTML=bits.map(([k,l])=>`<span class="achip">${esc(l)}<button type="button" aria-label="Remove ${esc(l)}" data-rm="${esc(k)}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span>`).join("")+(bits.length>1?'<button type="button" class="achip clear" data-rm="all">Clear all</button>':"");
+  const n=activeCount();$("fcount").hidden=!n;$("fcount").textContent=n;}
+
+const EMPTY={
+ home:"Nothing matches these filters. Try a wider year range or lower minimum scores.",
+ explore:"You've gone through every recommendation. New picks will show up here.",
+ watchlist:"Nothing to get right now. Add titles from Explore.",
+ history:"Nothing watched yet. Tap Watched on any title and it lands here."
+};
+function render(){
+  const p=state.page,tab=state.tab[p],P=PAGES[p];
+  $("pageTitle").innerHTML=p==="home"?"What to <i>Watch</i>":p==="explore"?"Explore":"Watchlist";
+  $("pageSub").hidden=!P.sub;$("pageSub").textContent=P.sub||"";
+  $("filterBtn").hidden=p!=="home";
+  $("tabs").innerHTML=P.tabs.map(([k,l])=>`<button class="tab" role="tab" data-tab="${k}" aria-selected="${k===tab}">${l} <span class="n">${rowsFor(p,k).length}</span></button>`).join("");
+  const rows=rowsFor(p,tab);
+  const kind=p==="watchlist"&&tab==="history"?"history":p;
+  const msg=EMPTY[kind];
+  $("list").innerHTML=rows.length?rows.map(i=>card(i,kind)).join(""):`<div class="empty"><b>All clear</b>${msg}${p==="home"&&activeCount()?'<br><button type="button" data-rm="all">Clear filters</button>':""}</div>`;
+  document.querySelectorAll(".nav").forEach(n=>n.dataset.page===p?n.setAttribute("aria-current","page"):n.removeAttribute("aria-current"));
+  const wl=ITEMS.filter(i=>i.s==="watchlist").length;$("wlBadge").hidden=!wl;$("wlBadge").textContent=wl;
+  renderActive();renderSheet();
+  const hr=rowsFor("home",state.tab.home);
+  $("apply").textContent=`Show ${hr.length} ${state.tab.home==="movie"?(hr.length===1?"movie":"movies"):"series"}`;
+}
+
+function renderSheet(){const f=state.f;
+  $("genreChips").innerHTML=GENRES.map(g=>`<button type="button" class="chip" data-genre="${g}" aria-pressed="${f.genres.has(g)}">${g}</button>`).join("");
+  document.querySelectorAll("#locSeg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.loc===f.loc));
+  $("yfrom").value=f.yfrom;$("yto").value=f.yto;
+  $("imdbMin").value=f.imdb;$("rtMin").value=f.rt;
+  $("imdbOut").textContent=f.imdb>0?`${f.imdb.toFixed(1)}+`:"Any";
+  $("rtOut").textContent=f.rt>0?`${f.rt}%+`:"Any";
+  $("imdbMin").style.setProperty("--p",(f.imdb/9*100)+"%");
+  $("rtMin").style.setProperty("--p",f.rt+"%");
+  const h=ITEMS.filter(i=>i.s==="hidden").length;$("hiddenRow").hidden=!h;$("hiddenTxt").textContent=`${h} hidden ${h===1?"title":"titles"}`;
+}
+
+const yOpts=[];for(let y=YMAX;y>=YMIN;y--)yOpts.push(`<option value="${y}">${y}</option>`);
+$("yfrom").innerHTML=yOpts.slice().reverse().join("");$("yto").innerHTML=yOpts.join("");
+
+function go(page,tab){state.page=page;if(tab)state.tab[page]=tab;openSheet(false);$("list").scrollTop=0;render();}
+const openSheet=o=>$("screen").classList.toggle("filtering",o);
+$("filterBtn").onclick=()=>openSheet(true);
+$("scrim").onclick=$("apply").onclick=()=>openSheet(false);
+
+let toastT,last=null,order=100;
+function toast(msg){$("toastmsg").textContent=msg;$("toast").classList.add("show");clearTimeout(toastT);toastT=setTimeout(()=>$("toast").classList.remove("show"),3800);}
+$("undo").onclick=()=>{if(last){const i=byId(last.id);Object.assign(i,last.prev);last=null;render();}$("toast").classList.remove("show");};
+
+// Move a title to a new section. This is the only way state changes.
+function move(id,to,extra,msg){const i=byId(id);
+  last={id,prev:{s:i.s,loc:i.loc,wd:i.wd,order:i.order}};
+  i.s=to;Object.assign(i,extra||{});render();toast(msg);}
+
+const ACTIONS={
+ watched:i=>move(i.id,"history",{wd:"today",order:++order},`“${i.name}” moved to History`),
+ hide:i=>move(i.id,"hidden",null,`Hid “${i.name}”`),
+ watchlist:i=>move(i.id,"watchlist",null,`Added “${i.name}” to your Watchlist`),
+ remove:i=>move(i.id,"removed",null,`Removed “${i.name}”. It won't be recommended again`),
+ downloaded:i=>move(i.id,"home",{loc:"local"},`“${i.name}” moved to Home`)
+};
+
+function removeFilter(k){const f=state.f;
+  if(k==="all"){f.yfrom=YMIN;f.yto=YMAX;f.genres.clear();f.loc="all";f.imdb=0;f.rt=0;}
+  else if(k==="year"){f.yfrom=YMIN;f.yto=YMAX;}
+  else if(k.startsWith("genre:"))f.genres.delete(k.slice(6));
+  else if(k==="loc")f.loc="all";else if(k==="imdb")f.imdb=0;else if(k==="rt")f.rt=0;
+  render();}
+
+document.addEventListener("click",e=>{
+  const j=e.target.closest("[data-jump]");if(j){const v=j.dataset.jump;
+    if(v==="filters"){go("home");openSheet(true);}else if(v==="history")go("watchlist","history");else go(v);return;}
+  const nav=e.target.closest("[data-page]");if(nav){go(nav.dataset.page);return;}
+  const tb=e.target.closest("[data-tab]");if(tb){go(state.page,tb.dataset.tab);return;}
+  const rm=e.target.closest("[data-rm]");if(rm){removeFilter(rm.dataset.rm);return;}
+  const g=e.target.closest("[data-genre]");if(g){const s=state.f.genres;s.has(g.dataset.genre)?s.delete(g.dataset.genre):s.add(g.dataset.genre);render();return;}
+  const l=e.target.closest("[data-loc]");if(l){state.f.loc=l.dataset.loc;render();return;}
+  const syn=e.target.closest("[data-toggle]");if(syn){syn.closest(".card").classList.toggle("open");return;}
+  const a=e.target.closest("[data-act]");if(!a)return;
+  const c=a.closest(".card"),i=byId(+c.dataset.id),act=a.dataset.act;
+  c.classList.add("leaving");if(act==="watchlist"||act==="downloaded")c.classList.add("right");
+  setTimeout(()=>ACTIONS[act](i),200);
+});
+$("yfrom").onchange=e=>{state.f.yfrom=+e.target.value;if(state.f.yfrom>state.f.yto)state.f.yto=state.f.yfrom;render();};
+$("yto").onchange=e=>{state.f.yto=+e.target.value;if(state.f.yto<state.f.yfrom)state.f.yfrom=state.f.yto;render();};
+$("imdbMin").oninput=e=>{state.f.imdb=+e.target.value;render();};
+$("rtMin").oninput=e=>{state.f.rt=+e.target.value;render();};
+$("reset").onclick=()=>removeFilter("all");
+$("unhide").onclick=()=>{ITEMS.forEach(i=>{if(i.s==="hidden")i.s="home";});render();};
+render();
+</script>
