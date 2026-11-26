@@ -129,7 +129,7 @@ $$;
 -- * Home, History, Hidden and Removed are never touched.
 -- A title TMDB can't confirm for the user's region is not available, so it never auto-moves.
 -- Returns the number of rows moved or added.
-CREATE OR REPLACE FUNCTION apply_availability_moves(p_title_ids BIGINT[] DEFAULT NULL)
+CREATE OR REPLACE FUNCTION apply_availability_moves(p_title_ids BIGINT[] DEFAULT NULL, p_user_id UUID DEFAULT NULL)
 RETURNS INTEGER
 LANGUAGE plpgsql
 SET search_path = public
@@ -146,12 +146,14 @@ BEGIN
       JOIN app_user u          ON u.region_code = a.region_code
      WHERE a.source_type = 'streaming'
        AND (p_title_ids IS NULL OR a.title_id = ANY (p_title_ids))
+       AND (p_user_id IS NULL OR u.user_id = p_user_id)
     UNION
     SELECT u.user_id, a.title_id
       FROM title_availability a
      CROSS JOIN app_user u
      WHERE a.source_type = 'local'
-       AND (p_title_ids IS NULL OR a.title_id = ANY (p_title_ids));
+       AND (p_title_ids IS NULL OR a.title_id = ANY (p_title_ids))
+       AND (p_user_id IS NULL OR u.user_id = p_user_id);
 
     -- Watchlist / Explore -> Home
     DROP TABLE IF EXISTS _moved;
@@ -183,6 +185,7 @@ BEGIN
          CROSS JOIN app_user u
           LEFT JOIN _available av ON av.user_id = u.user_id AND av.title_id = t.title_id
          WHERE (p_title_ids IS NULL OR t.title_id = ANY (p_title_ids))
+           AND (p_user_id IS NULL OR u.user_id = p_user_id)
         ON CONFLICT (user_id, title_id) DO NOTHING
         RETURNING user_id, title_id, status
     )
@@ -196,10 +199,51 @@ BEGIN
 END;
 $$;
 
+-- ---------- Triggers ----------
+-- A new profile gets every synced title placed in Home or Explore straight away.
+CREATE OR REPLACE FUNCTION trg_place_titles_for_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    PERFORM apply_availability_moves(NULL, NEW.user_id);
+    RETURN NULL;
+END;
+$$;
+CREATE TRIGGER place_titles_for_new_user
+AFTER INSERT ON app_user
+FOR EACH ROW EXECUTE FUNCTION trg_place_titles_for_new_user();
+
+-- Adding hard-drive rows moves those titles to Home (from Watchlist or Explore).
+CREATE OR REPLACE FUNCTION trg_local_availability_moves()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_ids BIGINT[];
+BEGIN
+    SELECT array_agg(DISTINCT title_id) INTO v_ids FROM new_rows WHERE source_type = 'local';
+    IF v_ids IS NOT NULL THEN
+        PERFORM apply_availability_moves(v_ids);
+    END IF;
+    RETURN NULL;
+END;
+$$;
+CREATE TRIGGER local_availability_moves
+AFTER INSERT ON title_availability
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION trg_local_availability_moves();
+
 -- Only the sync job (service role) may call these.
 REVOKE ALL ON FUNCTION set_title_providers(BIGINT, CHAR, JSONB)  FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION upsert_tmdb_title(JSONB, CHAR)            FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION apply_availability_moves(BIGINT[])        FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION apply_availability_moves(BIGINT[], UUID)  FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION set_title_providers(BIGINT, CHAR, JSONB) TO service_role;
 GRANT EXECUTE ON FUNCTION upsert_tmdb_title(JSONB, CHAR)           TO service_role;
-GRANT EXECUTE ON FUNCTION apply_availability_moves(BIGINT[])       TO service_role;
+GRANT EXECUTE ON FUNCTION apply_availability_moves(BIGINT[], UUID) TO service_role;
+REVOKE ALL ON FUNCTION trg_place_titles_for_new_user()          FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION trg_local_availability_moves()            FROM PUBLIC, anon, authenticated;
