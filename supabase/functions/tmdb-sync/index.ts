@@ -17,7 +17,8 @@
 //   { "mode": "refresh", "limit": 100 }                    re-check the least recently synced titles
 //   { "mode": "backfill", "max_titles": 400 }              next slice of the initial seed (cursor in sync_backfill)
 //   { "mode": "estimate" }                                 how many titles each seed source holds
-//   { "mode": "scores", "limit": 900 }                     IMDb + Rotten Tomatoes scores from OMDb
+//   { "mode": "scores", "limit": 900 }                     IMDb + Metacritic (+ RT if OMDb has it) from OMDb
+//   { "mode": "omdb_probe", "imdb_id": "tt0111161" }       which rating sources OMDb returns (1 call)
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -244,15 +245,17 @@ async function scores(limit: number, started: number) {
       const o = await res.json();
       if (o.Response === "False") {
         if (/limit|invalid api key/i.test(o.Error ?? "")) { limited = true; return null; }
-        return { title_id: t.title_id, imdb_rating: null, rt_score: null }; // not on OMDb
+        return { title_id: t.title_id, imdb_rating: null, rt_score: null, metacritic_score: null }; // not on OMDb
       }
       const imdb = Number(o.imdbRating);
       const rt = (o.Ratings ?? []).find((r: any) => r.Source === "Rotten Tomatoes")?.Value;
       const rtNum = rt ? Number(String(rt).replace("%", "")) : NaN;
+      const meta = Number(o.Metascore);
       return {
         title_id: t.title_id,
         imdb_rating: Number.isFinite(imdb) && imdb >= 0 && imdb <= 10 ? imdb : null,
         rt_score: Number.isFinite(rtNum) && rtNum >= 0 && rtNum <= 100 ? Math.round(rtNum) : null,
+        metacritic_score: Number.isFinite(meta) && meta >= 0 && meta <= 100 ? Math.round(meta) : null,
       };
     } catch (e) {
       errors.push(`${t.imdb_id}: ${(e as Error).message}`);
@@ -272,6 +275,7 @@ async function scores(limit: number, started: number) {
     updated,
     with_imdb: done.filter((r) => r!.imdb_rating !== null).length,
     with_rt: done.filter((r) => r!.rt_score !== null).length,
+    with_metacritic: done.filter((r) => r!.metacritic_score !== null).length,
     stopped_early: limited,
     errors: errors.slice(0, 20),
   };
@@ -389,6 +393,15 @@ Deno.serve(async (req) => {
     if (mode === "scores") {
       const limit = Math.min(Math.max(Number(body.limit ?? 900), 1), 1000);
       return json({ mode, ...await scores(limit, started) });
+    }
+    if (mode === "omdb_probe") {
+      // Diagnostic: show which rating sources OMDb returns for one IMDb id (1 OMDb call).
+      const url = new URL("https://www.omdbapi.com/");
+      url.searchParams.set("apikey", OMDB_KEY);
+      url.searchParams.set("i", String(body.imdb_id ?? "tt0111161"));
+      const o = await (await fetch(url)).json();
+      return json({ mode, keys: Object.keys(o), imdbRating: o.imdbRating, Ratings: o.Ratings ?? null,
+                    Metascore: o.Metascore ?? null, Response: o.Response, Error: o.Error ?? null });
     }
     if (mode === "estimate") return json({ mode, region: REGION, min_votes: MIN_VOTES, ...await estimate() });
     if (mode === "backfill") {
