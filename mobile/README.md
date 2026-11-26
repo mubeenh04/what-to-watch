@@ -1,0 +1,77 @@
+# What to Watch — mobile app
+
+Native Android and iOS app built with React Native and Expo (SDK 58, Expo Router). It reads and
+writes the Supabase project `what-to-watch`; titles come from the TMDB sync in `../supabase`.
+
+## Run it on your phone (Expo Go)
+
+You need Node.js 20 or newer on your Mac (`node -v` to check; install from nodejs.org if missing).
+
+1. Install **Expo Go** on your phone from the App Store or Google Play.
+2. In Terminal on your Mac:
+   ```bash
+   cd "what-to-watch/mobile"
+   npm install
+   cp .env.example .env
+   npx expo start
+   ```
+3. A QR code appears in Terminal.
+   - **iPhone:** open the Camera app, point it at the QR code and tap the banner.
+   - **Android:** open Expo Go and tap **Scan QR code**.
+4. The first time, tap **New here? Create an account**, then confirm the email Supabase sends
+   you and sign in. Your first sign-in sorts every title into Home (on Netflix in South Africa or
+   on a drive) or Explore (everything else). This takes a few seconds.
+
+The phone and the Mac need to be on the same Wi-Fi. If they can't see each other (for example on
+a guest network), run `npx expo start --tunnel` instead.
+
+Saving a file on the Mac reloads the app on the phone straight away.
+
+## What's where
+
+| Path | What it does |
+| --- | --- |
+| `src/app/_layout.tsx` | Fonts, sign-in gate, first-sign-in profile setup |
+| `src/app/(tabs)/` | Home, Explore and Watchlist, with the bottom tab bar |
+| `src/components/TitleCard.tsx` | The card: poster, name, two genres, synopsis, two actors, IMDb and Metacritic, where to watch, actions |
+| `src/components/FilterSheet.tsx` | Home filters: year, genre, location, minimum IMDb and Metacritic |
+| `src/components/TitleList.tsx` | Paged list, moves between sections with Undo |
+| `src/lib/api.ts` | Every Supabase query and update |
+| `src/lib/format.ts` | Turns database rows into cards (tested in `tests/`) |
+
+A title lives in exactly one section. Each button changes the title's `user_title.status`, but
+only while it is still in the section the card came from, and logs the move in
+`title_status_event`.
+
+| Section | Buttons |
+| --- | --- |
+| Home | Watched → History, Hide → Hidden (Filters → "Show again" brings hidden titles back) |
+| Explore | Add to Watchlist, Watched → History, Remove → block list (never recommended again) |
+| Watchlist | Mark downloaded → Home |
+| History | Rate on Letterboxd |
+
+Scores: IMDb and Metacritic show a dash until the OMDb score job fills them in, and the score
+filters stay off until at least one title has a score.
+
+## Checks
+
+```bash
+npm run typecheck   # TypeScript
+npm test            # unit tests for card formatting
+```
+
+## Settings and keys
+
+`.env` holds the Supabase URL and the **publishable** key. Both are public by design: the
+database's row-level security only lets each signed-in user see the catalogue and change their own
+lists. Never put the service role key, the TMDB key or any other secret in this app.
+
+## Installing it properly later
+
+Expo Go is for development. To install the app like any other app (no Mac running), build it with
+EAS: `npx eas-cli@latest build --profile preview --platform android` gives an APK you can install
+directly. iPhone installs outside Expo Go need an Apple Developer account ($99 a year) and
+`npx eas-cli@latest build --platform ios`.
+
+Posters, titles and cast come from TMDB; where-to-watch data comes from JustWatch through TMDB.
+This product uses the TMDB API but is not endorsed or certified by TMDB.
