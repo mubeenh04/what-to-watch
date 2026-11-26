@@ -15,6 +15,7 @@
 //   { "mode": "discover", "pages": 3, "start_page": 1 }   Netflix ZA catalogue + trending for Explore
 //   { "mode": "title", "tmdb_id": 603, "type": "movie" }   one title (type: movie | series)
 //   { "mode": "refresh", "limit": 100 }                    re-check the least recently synced titles
+//     add "missing_release": true to re-fetch titles synced before release data existed
 //   { "mode": "backfill", "max_titles": 400 }              next slice of the initial seed (cursor in sync_backfill)
 //   { "mode": "estimate" }                                 how many titles each seed source holds
 //   { "mode": "scores", "limit": 900 }                     IMDb + Metacritic (+ RT if OMDb has it) from OMDb
@@ -87,7 +88,7 @@ async function buildPayload(ref: Ref, providerIds: Set<number>) {
   const credits = ref.type === "movie" ? "credits" : "aggregate_credits";
   const d = await tmdb(`/${kind}/${ref.tmdb_id}`, {
     language: "en-US",
-    append_to_response: `${credits},external_ids,watch/providers`,
+    append_to_response: `${credits},external_ids,watch/providers${ref.type === "movie" ? ",release_dates" : ""}`,
   });
 
   const releaseYear = year(ref.type === "movie" ? d.release_date : d.first_air_date);
@@ -109,9 +110,29 @@ async function buildPayload(ref: Ref, providerIds: Set<number>) {
     .filter((p: any) => providerIds.has(p.provider_id))
     .map((p: any) => ({ provider_id: p.provider_id, link: za?.link ?? null }));
 
+  // Release dates: the region's own, else US. TMDB types 1-6 (premiere ... TV).
+  let releaseRegion: string | null = null;
+  let releases: any[] = [];
+  if (ref.type === "movie") {
+    const byCountry: any[] = d.release_dates?.results ?? [];
+    for (const c of [REGION, "US"]) {
+      const hit = byCountry.find((x) => x.iso_3166_1 === c);
+      if (hit?.release_dates?.length) {
+        releaseRegion = c;
+        releases = hit.release_dates.map((r: any) => ({
+          type: r.type, date: r.release_date, certification: r.certification, note: r.note,
+        }));
+        break;
+      }
+    }
+  }
+
   return {
     type: ref.type,
     tmdb_id: ref.tmdb_id,
+    release_region: releaseRegion,
+    releases,
+    first_air_date: ref.type === "series" ? (d.first_air_date || null) : null,
     name: ref.type === "movie" ? d.title : d.name,
     release_year: releaseYear,
     end_year: endYear,
@@ -422,15 +443,17 @@ Deno.serve(async (req) => {
       if (!Number.isInteger(body.tmdb_id)) return json({ error: "tmdb_id (integer) is required" }, 400);
       refs = [{ tmdb_id: body.tmdb_id, type }];
     } else if (mode === "refresh") {
-      const limit = Math.min(Math.max(Number(body.limit ?? 100), 1), 300);
-      const { data, error } = await db
-        .from("title")
-        .select("tmdb_id, title_type")
-        .not("tmdb_id", "is", null)
-        .order("tmdb_synced_at", { ascending: true, nullsFirst: true })
-        .limit(limit);
+      const limit = Math.min(Math.max(Number(body.limit ?? 100), 1), 400);
+      let q = db.from("title").select("tmdb_id, title_type").not("tmdb_id", "is", null);
+      // One-off release backfill: titles imported before release data was stored.
+      if (body.missing_release) q = q.is("release_checked_at", null);
+      const { data, error } = await q.order("tmdb_synced_at", { ascending: true, nullsFirst: true }).limit(limit);
       if (error) throw error;
       refs = data.map((t) => ({ tmdb_id: t.tmdb_id as number, type: t.title_type as TitleType }));
+      if (body.missing_release && refs.length === 0) {
+        await db.rpc("finish_release_backfill");
+        return json({ mode, missing_release: true, done: true });
+      }
     } else {
       return json({ error: `unknown mode ${mode}` }, 400);
     }
