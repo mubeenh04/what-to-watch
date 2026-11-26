@@ -34,7 +34,9 @@ Saving a file on the Mac reloads the app on the phone straight away.
 | `src/app/_layout.tsx` | Fonts, sign-in gate, first-sign-in profile setup |
 | `src/app/(tabs)/` | Home, Explore and Watchlist, with the bottom tab bar |
 | `src/components/TitleCard.tsx` | The card: poster, name, two genres, synopsis, two actors, IMDb and Metacritic, where to watch, actions |
-| `src/components/FilterSheet.tsx` | Home filters: year, genre, location, minimum IMDb and Metacritic |
+| `src/components/FilterSheet.tsx` | Filters per page: Home (year, genre, location, scores), Explore (year, genre, scores, release), Watchlist (release) |
+| `src/components/BottomSheet.tsx` | The tray used by Filters and About: drag or tap its top to close |
+| `src/components/Pager.tsx` | Swipe left and right between a page's tabs |
 | `src/components/TitleList.tsx` | Paged list, moves between sections with Undo |
 | `src/lib/api.ts` | Every Supabase query and update |
 | `src/lib/format.ts` | Turns database rows into cards (tested in `tests/`) |
@@ -49,6 +51,14 @@ only while it is still in the section the card came from, and logs the move in
 | Explore | Add to Watchlist, Watched → History, Remove → block list (never recommended again) |
 | Watchlist | Mark downloaded → Home |
 | History | Rate on Letterboxd |
+
+Search (Home): fuzzy matching on titles and the top-billed actors, so typos still match. It uses
+the database function `search_my_titles` (migration `20261126194000_title_search.sql`, already
+applied). If that function is missing, the app falls back to a plain "name contains" search.
+
+Release status (Explore and Watchlist): cards show e.g. "In cinemas only · Since 14 Nov · Digital on
+3 Dec", and the filters can pick statuses. It switches on by itself once the release_status
+migration has run; until then the app leaves those columns out.
 
 Scores: IMDb and Metacritic show a dash until the OMDb score job fills them in, and the score
 filters stay off until at least one title has a score.

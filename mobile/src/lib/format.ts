@@ -1,4 +1,4 @@
-import type { CardTitle, HomeFilters, TitleRow, WhereToWatch } from './types';
+import type { CardTitle, HomeFilters, ReleaseInfo, ReleaseStatus, ReleaseType, TitleRow, WhereToWatch } from './types';
 
 export const MAX_SYNOPSIS_WORDS = 50;
 
@@ -82,6 +82,7 @@ export function toCard(row: TitleRow): CardTitle {
     where: whereToWatch(row),
     letterboxdUrl: letterboxdUrl(t.name, t.letterboxd_url),
     watchedAt: row.watched_at,
+    release: releaseInfo(row),
   };
 }
 
@@ -111,5 +112,74 @@ export function activeFilterCount(f: HomeFilters): number {
   if (f.location !== 'all') n++;
   if (f.imdbMin > 0) n++;
   if (f.metacriticMin > 0) n++;
+  n += f.releaseStatuses.length;
   return n;
+}
+
+export const RELEASE_LABELS: Record<ReleaseStatus, string> = {
+  upcoming: 'Coming soon',
+  premiered: 'Festival premiere',
+  in_cinemas: 'In cinemas only',
+  digital: 'Digital',
+  physical: 'DVD/Blu-ray',
+  on_tv: 'On TV',
+};
+
+const NEXT_LABELS: Record<ReleaseType, string> = {
+  premiere: 'Premiere',
+  theatrical_limited: 'In cinemas',
+  theatrical: 'In cinemas',
+  digital: 'Digital',
+  physical: 'DVD/Blu-ray',
+  tv: 'On TV',
+};
+
+/** Which release events put a title in each status (for the "since" date). */
+const STATUS_TYPES: Record<ReleaseStatus, ReleaseType[]> = {
+  upcoming: [],
+  premiered: ['premiere'],
+  in_cinemas: ['theatrical', 'theatrical_limited'],
+  digital: ['digital', 'tv'],
+  physical: ['physical'],
+  on_tv: ['tv'],
+};
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "14 Nov", or "14 Nov 2025" outside the current year. Takes a YYYY-MM-DD date. */
+export function shortDate(ymd: string, now = new Date()): string {
+  const [y, m, d] = ymd.slice(0, 10).split('-').map(Number);
+  return `${d} ${MONTHS[m - 1]}${y === now.getFullYear() ? '' : ' ' + y}`;
+}
+
+const todayYmd = (now: Date) =>
+  `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+/** Release status line for Explore and Watchlist cards, or null when TMDB has no dates. */
+export function releaseInfo(row: TitleRow, now = new Date()): ReleaseInfo | null {
+  const t = row.title;
+  const status = t.release_status;
+  if (!status) return null;
+  const next = t.next_release_type && t.next_release_date ? { type: t.next_release_type, date: t.next_release_date } : null;
+
+  if (status === 'upcoming') {
+    if (!next) return { status, label: RELEASE_LABELS.upcoming, detail: null };
+    return {
+      status,
+      label: `Coming ${shortDate(next.date, now)}`,
+      detail: next.type === 'premiere' ? 'Festival premiere' : NEXT_LABELS[next.type],
+    };
+  }
+
+  const today = todayYmd(now);
+  const types = STATUS_TYPES[status];
+  const since = (t.title_release ?? [])
+    .filter((r) => types.includes(r.release_type) && r.release_date <= today)
+    .map((r) => r.release_date)
+    .sort()
+    .pop();
+  const bits: string[] = [];
+  if (since) bits.push(`Since ${shortDate(since, now)}`);
+  if (next) bits.push(`${NEXT_LABELS[next.type]} on ${shortDate(next.date, now)}`);
+  return { status, label: RELEASE_LABELS[status], detail: bits.length ? bits.join(' · ') : null };
 }

@@ -1,21 +1,16 @@
 import Constants from 'expo-constants';
-import { Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, fonts } from '../lib/theme';
 import { useSession } from '../state/session';
+import { BottomSheet } from './BottomSheet';
 
 /** Account and About: signed-in email, sign out, and the data attributions TMDB requires. */
 export function AboutSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const insets = useSafeAreaInsets();
   const { session, signOut } = useSession();
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <Pressable style={styles.scrim} onPress={onClose} accessibilityLabel="Close" />
-      <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
-        <View style={styles.grab} />
-        <Text style={styles.h2}>ABOUT</Text>
-
+    <BottomSheet visible={visible} onClose={onClose} header={<Text style={styles.h2}>ABOUT</Text>}>
+      <View style={styles.body}>
         <Text style={styles.label}>SIGNED IN AS</Text>
         <Text style={styles.text}>{session?.user.email ?? '—'}</Text>
 
@@ -53,36 +48,45 @@ export function AboutSheet({ visible, onClose }: { visible: boolean; onClose: ()
           <Text style={styles.signOutText}>Sign out</Text>
         </Pressable>
       </View>
-    </Modal>
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  scrim: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.55)' },
-  sheet: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: colors.sheet,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    borderTopWidth: 1,
-    borderColor: colors.line,
+  body: { paddingHorizontal: 20, gap: 8 },
+  h2: {
+    color: colors.text,
+    fontFamily: fonts.display,
+    fontSize: 26,
+    letterSpacing: 0.8,
     paddingHorizontal: 20,
-    gap: 8,
+    paddingTop: 10,
+    paddingBottom: 6,
   },
-  grab: { width: 40, height: 4, borderRadius: 2, backgroundColor: colors.line, alignSelf: 'center', marginTop: 10, marginBottom: 6 },
-  h2: { color: colors.text, fontFamily: fonts.display, fontSize: 26, letterSpacing: 0.8, marginBottom: 4 },
   label: { color: colors.muted, fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 1.3, marginTop: 10 },
   text: { color: colors.text, fontFamily: fonts.body, fontSize: 14, lineHeight: 20 },
   small: { color: colors.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 17 },
   tmdbRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   // TMDB's brand colours (dark blue with their green-to-blue accent).
-  tmdbMark: { backgroundColor: '#0d253f', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, borderBottomWidth: 3, borderBottomColor: '#01b4e4' },
+  tmdbMark: {
+    backgroundColor: '#0d253f',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderBottomWidth: 3,
+    borderBottomColor: '#01b4e4',
+  },
   tmdbText: { color: '#90cea1', fontFamily: fonts.display, fontSize: 15, letterSpacing: 1 },
   links: { flexDirection: 'row', gap: 18, marginVertical: 4 },
   link: { color: colors.red, fontFamily: fonts.bodySemi, fontSize: 13 },
-  signOut: { marginTop: 14, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface2, borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
+  signOut: {
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surface2,
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
   signOutText: { color: colors.text, fontFamily: fonts.bodyBold, fontSize: 15 },
 });

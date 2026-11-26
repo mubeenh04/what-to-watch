@@ -8,10 +8,19 @@ import type { Action, CardTitle, Genre, HomeFilters, Status, TitleRow, TitleType
 
 export type Section = 'home' | 'explore' | 'watchlist' | 'history';
 
-const TITLE_FIELDS = `title_id,title_type,name,release_year,end_year,synopsis,poster_url,imdb_rating,metacritic_score,letterboxd_url,
+const BASE_TITLE_FIELDS = `title_id,title_type,name,release_year,end_year,synopsis,poster_url,imdb_rating,metacritic_score,letterboxd_url,
   title_genre(rank,genre(name)),
   title_cast(billing_order,person(name)),
   title_availability(source_type,watch_url,streaming_service(name,logo_url,display_order),local_drive(name))`;
+
+/**
+ * Release status columns arrive with the release_status migration. Until the database has them
+ * the app leaves them out of every query, so it works before and after that migration runs.
+ */
+let releaseEnabled = false;
+export const isReleaseEnabled = () => releaseEnabled;
+const RELEASE_FIELDS = `,release_status,next_release_type,next_release_date,title_release(release_type,release_date)`;
+const titleFields = () => BASE_TITLE_FIELDS + (releaseEnabled ? RELEASE_FIELDS : '');
 
 /** Extra embeds used only to filter Home by genre or location. */
 function filterEmbeds(f: HomeFilters | undefined): string {
@@ -34,6 +43,13 @@ function applyFilters(q: Q, f: HomeFilters | undefined): Q {
   if (f.imdbMin > 0) q = q.gte('title.imdb_rating', f.imdbMin);
   if (f.metacriticMin > 0) q = q.gte('title.metacritic_score', f.metacriticMin);
   if (f.genreIds.length) q = q.in('title.gf.genre_id', f.genreIds);
+  if (releaseEnabled && f.releaseStatuses.length) {
+    const known = f.releaseStatuses.filter((s) => s !== 'unknown');
+    const parts = [];
+    if (known.length) parts.push(`release_status.in.(${known.join(',')})`);
+    if (f.releaseStatuses.includes('unknown')) parts.push('release_status.is.null');
+    q = q.or(parts.join(','), { referencedTable: 'title' });
+  }
   if (f.location === 'streaming') q = q.eq('title.sf.source_type', 'streaming');
   if (f.location === 'local') {
     // On a drive, or marked downloaded (Home with no streaming row).
@@ -51,17 +67,19 @@ function sectionQuery(
   type: TitleType | null,
   filters: HomeFilters | undefined,
   select: 'rows' | 'count',
+  titleIds?: number[],
 ): Q {
-  const f = section === 'home' ? filters : undefined;
+  const f = filters;
   const fields =
     select === 'rows'
-      ? `title_id,status,status_changed_at,watched_at,title!inner(${TITLE_FIELDS}${filterEmbeds(f)})`
+      ? `title_id,status,status_changed_at,watched_at,title!inner(${titleFields()}${filterEmbeds(f)})`
       : `title_id,title!inner(title_type${filterEmbeds(f)})`;
   let q: Q = client
     .from('user_title')
     .select(fields, select === 'count' ? { count: 'exact', head: true } : undefined)
     .eq('status', section);
   if (type) q = q.eq('title.title_type', type);
+  if (titleIds) q = q.in('title_id', titleIds.length ? titleIds : [-1]);
   return applyFilters(q, f);
 }
 
@@ -81,10 +99,71 @@ function orderFor(q: Q, section: Section): Q {
   }
 }
 
+export const SEARCH_LIMIT = 100;
+
+/**
+ * Fuzzy search through the database function search_my_titles (typos and partial words match).
+ * Returns title ids, best match first. Falls back to a plain "name contains" match if the
+ * function isn't available.
+ */
+export async function searchTitleIds(
+  client: SupabaseClient,
+  query: string,
+  section: Section,
+  type: TitleType | null,
+): Promise<number[]> {
+  const { data, error } = await client.rpc('search_my_titles', {
+    p_query: query,
+    p_status: section,
+    p_type: type,
+    p_limit: SEARCH_LIMIT,
+  });
+  if (!error) {
+    const rows = (data ?? []) as { title_id: number; score: number }[];
+    // Drop the long tail of weak matches when there are strong ones.
+    const best = rows[0]?.score ?? 0;
+    return rows.filter((r) => r.score >= best * 0.5).map((r) => r.title_id);
+  }
+  // Function missing or failing: fall back to a plain substring match so search still works.
+  console.warn('search_my_titles failed, using a simple match instead:', error.message);
+
+  let q: Q = client
+    .from('user_title')
+    .select('title_id,title!inner(title_type,name)')
+    .eq('status', section)
+    .ilike('title.name', `%${query.replace(/[%_,()]/g, ' ').trim()}%`)
+    .limit(SEARCH_LIMIT);
+  if (type) q = q.eq('title.title_type', type);
+  const res = await q;
+  if (res.error) throw res.error;
+  return ((res.data ?? []) as { title_id: number }[]).map((r) => r.title_id);
+}
+
+export type ListOpts = {
+  section: Section;
+  type: TitleType | null;
+  filters?: HomeFilters;
+  search?: string;
+  offset?: number;
+  limit?: number;
+};
+
 export async function listTitles(
   client: SupabaseClient,
-  opts: { section: Section; type: TitleType | null; filters?: HomeFilters; offset?: number; limit?: number },
+  opts: ListOpts,
 ): Promise<{ items: CardTitle[]; hasMore: boolean }> {
+  const search = opts.search?.trim();
+  if (search) {
+    // Search results come back in one go, best match first.
+    if (opts.offset) return { items: [], hasMore: false };
+    const ids = await searchTitleIds(client, search, opts.section, opts.type);
+    if (!ids.length) return { items: [], hasMore: false };
+    const { data, error } = await sectionQuery(client, opts.section, opts.type, opts.filters, 'rows', ids);
+    if (error) throw error;
+    const rank = new Map(ids.map((id, i) => [id, i]));
+    const rows = ((data ?? []) as TitleRow[]).sort((a, b) => rank.get(a.title_id)! - rank.get(b.title_id)!);
+    return { items: rows.map(toCard), hasMore: false };
+  }
   const offset = opts.offset ?? 0;
   const limit = opts.limit ?? PAGE_SIZE;
   const q = orderFor(sectionQuery(client, opts.section, opts.type, opts.filters, 'rows'), opts.section);
@@ -99,8 +178,14 @@ export async function countTitles(
   section: Section,
   type: TitleType | null,
   filters?: HomeFilters,
+  search?: string,
 ): Promise<number> {
-  const { count, error } = await sectionQuery(client, section, type, filters, 'count');
+  let ids: number[] | undefined;
+  if (search?.trim()) {
+    ids = await searchTitleIds(client, search.trim(), section, type);
+    if (!ids.length) return 0;
+  }
+  const { count, error } = await sectionQuery(client, section, type, filters, 'count', ids);
   if (error) throw error;
   return count ?? 0;
 }
@@ -156,9 +241,17 @@ export async function unhideAll(client: SupabaseClient, userId: string): Promise
   if (error) throw error;
   const ids = (data ?? []).map((r: { title_id: number }) => r.title_id);
   if (ids.length) {
-    const { error: evErr } = await client.from('title_status_event').insert(
-      ids.map((title_id) => ({ user_id: userId, title_id, from_status: 'hidden', to_status: 'home', action: 'unhide' })),
-    );
+    const { error: evErr } = await client
+      .from('title_status_event')
+      .insert(
+        ids.map((title_id) => ({
+          user_id: userId,
+          title_id,
+          from_status: 'hidden',
+          to_status: 'home',
+          action: 'unhide',
+        })),
+      );
     if (evErr) console.warn('title_status_event insert failed', evErr.message);
   }
   return ids.length;
@@ -179,16 +272,25 @@ export async function listGenres(client: SupabaseClient): Promise<Genre[]> {
   return (data ?? []) as Genre[];
 }
 
-export type CatalogueInfo = { minYear: number; maxYear: number; hasImdb: boolean; hasMetacritic: boolean };
+export type CatalogueInfo = {
+  minYear: number;
+  maxYear: number;
+  hasImdb: boolean;
+  hasMetacritic: boolean;
+  hasReleaseStatus: boolean;
+};
 
 /** Year range and whether any scores exist yet (they are empty until a score source is added). */
 export async function catalogueInfo(client: SupabaseClient): Promise<CatalogueInfo> {
-  const [lo, hi, imdb, meta] = await Promise.all([
+  const [lo, hi, imdb, meta, rel] = await Promise.all([
     client.from('title').select('release_year').order('release_year').limit(1),
     client.from('title').select('release_year').order('release_year', { ascending: false }).limit(1),
     client.from('title').select('title_id').not('imdb_rating', 'is', null).limit(1),
     client.from('title').select('title_id').not('metacritic_score', 'is', null).limit(1),
+    // Fails until the release_status migration has run.
+    client.from('title').select('release_status').limit(1),
   ]);
+  releaseEnabled = !rel.error;
   for (const r of [lo, hi, imdb, meta]) if (r.error) throw r.error;
   const thisYear = new Date().getFullYear();
   return {
@@ -196,6 +298,7 @@ export async function catalogueInfo(client: SupabaseClient): Promise<CatalogueIn
     maxYear: hi.data?.[0]?.release_year ?? thisYear,
     hasImdb: !!imdb.data?.length,
     hasMetacritic: !!meta.data?.length,
+    hasReleaseStatus: releaseEnabled,
   };
 }
 
@@ -214,8 +317,7 @@ export async function ensureProfile(client: SupabaseClient, user: User): Promise
   if (error) throw error;
   if (data) return data as Profile;
 
-  const displayName =
-    (user.user_metadata?.display_name as string | undefined) || user.email?.split('@')[0] || 'Me';
+  const displayName = (user.user_metadata?.display_name as string | undefined) || user.email?.split('@')[0] || 'Me';
   const { data: created, error: insErr } = await client
     .from('app_user')
     .insert({ user_id: user.id, display_name: displayName.slice(0, 100), region_code: 'ZA' })

@@ -19,6 +19,10 @@ export type TitleRow = {
     imdb_rating: number | string | null;
     metacritic_score: number | null;
     letterboxd_url: string | null;
+    release_status?: ReleaseStatus | null;
+    next_release_type?: ReleaseType | null;
+    next_release_date?: string | null;
+    title_release?: { release_type: ReleaseType; release_date: string }[] | null;
     title_genre: { rank: number; genre: { name: string } | null }[] | null;
     title_cast: { billing_order: number; person: { name: string } | null }[] | null;
     title_availability:
@@ -31,6 +35,14 @@ export type TitleRow = {
       | null;
   };
 };
+
+export type ReleaseStatus = 'upcoming' | 'premiered' | 'in_cinemas' | 'digital' | 'physical' | 'on_tv';
+export type ReleaseType = 'premiere' | 'theatrical_limited' | 'theatrical' | 'digital' | 'physical' | 'tv';
+/** Filter values: a release status, or 'unknown' for titles TMDB has no release dates for. */
+export type ReleaseFilter = ReleaseStatus | 'unknown';
+
+/** What a card says about release, e.g. "In cinemas only" with "Since 14 Nov · Digital on 3 Dec". */
+export type ReleaseInfo = { status: ReleaseStatus; label: string; detail: string | null };
 
 export type WhereToWatch =
   | { kind: 'streaming'; name: string; logoUrl: string | null; url: string | null }
@@ -54,6 +66,7 @@ export type CardTitle = {
   where: WhereToWatch[];
   letterboxdUrl: string;
   watchedAt: string | null;
+  release: ReleaseInfo | null;
 };
 
 export type LocationFilter = 'all' | 'streaming' | 'local';
@@ -65,6 +78,7 @@ export type HomeFilters = {
   location: LocationFilter;
   imdbMin: number;
   metacriticMin: number;
+  releaseStatuses: ReleaseFilter[];
 };
 
 export const emptyFilters: HomeFilters = {
@@ -74,6 +88,7 @@ export const emptyFilters: HomeFilters = {
   location: 'all',
   imdbMin: 0,
   metacriticMin: 0,
+  releaseStatuses: [],
 };
 
 export type Genre = { genre_id: number; name: string };

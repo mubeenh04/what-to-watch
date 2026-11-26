@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { activeFilterCount, formatWatched, letterboxdUrl, posterForCard, toCard, toScore, trimSynopsis, whereToWatch } from '../src/lib/format';
+import { activeFilterCount, formatWatched, releaseInfo, shortDate, letterboxdUrl, posterForCard, toCard, toScore, trimSynopsis, whereToWatch } from '../src/lib/format';
 import { emptyFilters, type TitleRow } from '../src/lib/types';
 
 const row = (over: Partial<TitleRow['title']> = {}, status: TitleRow['status'] = 'home'): TitleRow => ({
@@ -105,4 +105,36 @@ test('watched dates read naturally', () => {
 test('active filter count', () => {
   assert.equal(activeFilterCount(emptyFilters), 0);
   assert.equal(activeFilterCount({ ...emptyFilters, yearFrom: 2000, genreIds: [1, 2], location: 'local', imdbMin: 7, metacriticMin: 60 }), 6);
+  assert.equal(activeFilterCount({ ...emptyFilters, releaseStatuses: ['in_cinemas', 'unknown'] }), 2);
+});
+
+test('release status line', () => {
+  const now = new Date(2026, 10, 26);
+  assert.equal(releaseInfo(row(), now), null);
+  assert.deepEqual(
+    releaseInfo(
+      row({
+        release_status: 'in_cinemas',
+        next_release_type: 'digital',
+        next_release_date: '2026-12-10',
+        title_release: [
+          { release_type: 'premiere', release_date: '2026-09-01' },
+          { release_type: 'theatrical', release_date: '2026-11-14' },
+          { release_type: 'digital', release_date: '2026-12-10' },
+        ],
+      }),
+      now,
+    ),
+    { status: 'in_cinemas', label: 'In cinemas only', detail: 'Since 14 Nov · Digital on 10 Dec' },
+  );
+  assert.deepEqual(
+    releaseInfo(row({ release_status: 'upcoming', next_release_type: 'theatrical', next_release_date: '2027-01-09' }), now),
+    { status: 'upcoming', label: 'Coming 9 Jan 2027', detail: 'In cinemas' },
+  );
+  assert.deepEqual(releaseInfo(row({ release_status: 'physical', title_release: [] }), now), {
+    status: 'physical',
+    label: 'DVD/Blu-ray',
+    detail: null,
+  });
+  assert.equal(shortDate('2025-03-02', now), '2 Mar 2025');
 });
