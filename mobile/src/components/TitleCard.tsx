@@ -220,7 +220,7 @@ function TitleCardInner({ item, kind, onAction }: Props) {
     actions = (
       <View style={styles.actions}>
         <ActionButton
-          label="Mark downloaded"
+          label="Mark as downloaded"
           variant="download"
           icon={<DownloadIcon color={colors.okText} />}
           onPress={act('downloaded')}
