@@ -7,7 +7,7 @@
 //   (or once a local-drive row exists for them).
 // Placement is done by the database function apply_availability_moves().
 //
-// Secrets: TMDB_API_KEY (TMDB "API Read Access Token" or v3 API key).
+// Secrets: TMDB_API_KEY (TMDB "API Read Access Token" or v3 API key), OMDB_API_KEY (scores).
 // Optional: TMDB_REGION (default ZA). Auth: service role key, or x-sync-secret matching the
 // Vault secret tmdb_sync_secret (see migration sync_schedule).
 //
@@ -17,6 +17,7 @@
 //   { "mode": "refresh", "limit": 100 }                    re-check the least recently synced titles
 //   { "mode": "backfill", "max_titles": 400 }              next slice of the initial seed (cursor in sync_backfill)
 //   { "mode": "estimate" }                                 how many titles each seed source holds
+//   { "mode": "scores", "limit": 900 }                     IMDb + Rotten Tomatoes scores from OMDb
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -32,6 +33,7 @@ const SYNC_SECRET = Deno.env.get("SYNC_SECRET") ?? "";
 const CONCURRENCY = 10;
 const MAX_PAGES = 10;
 const CAST_LIMIT = 5;
+const OMDB_KEY = Deno.env.get("OMDB_API_KEY") ?? "";
 
 const db = createClient(Deno.env.get("SUPABASE_URL")!, SERVICE_KEY, {
   auth: { persistSession: false },
@@ -115,6 +117,7 @@ async function buildPayload(ref: Ref, providerIds: Set<number>) {
     synopsis: synopsis(d.overview),
     poster_url: d.poster_path ? `${IMG}/w500${d.poster_path}` : null,
     imdb_id: d.external_ids?.imdb_id ?? d.imdb_id ?? null,
+    popularity: typeof d.popularity === "number" ? d.popularity : null,
     genres: (d.genres ?? []).map((g: any) => g.name),
     cast: castSrc.map((c: any) => ({
       tmdb_id: c.id,
@@ -219,6 +222,59 @@ async function backfill(maxTitles: number, started: number) {
   const { count } = await db.from("sync_backfill").select("id", { count: "exact", head: true }).eq("done", false);
   if (count === 0) await db.rpc("finish_tmdb_backfill");
   return { ...totals, errors: totals.errors.slice(0, 20), backfill_done: count === 0 };
+}
+
+// ---------- Scores (OMDb) ----------
+// Free OMDb keys allow 1,000 calls a day; the nightly job asks for 900.
+async function scores(limit: number, started: number) {
+  if (!OMDB_KEY) throw new Error("OMDB_API_KEY secret is not set");
+  const { data: queue, error } = await db.rpc("next_titles_for_scores", { p_limit: limit });
+  if (error) throw error;
+
+  let limited = false;
+  const errors: string[] = [];
+  const rows = await pool(queue ?? [], 8, async (t: { title_id: number; imdb_id: string }) => {
+    if (limited || Date.now() - started > BUDGET_MS) return null;
+    try {
+      const url = new URL("https://www.omdbapi.com/");
+      url.searchParams.set("apikey", OMDB_KEY);
+      url.searchParams.set("i", t.imdb_id);
+      const res = await fetch(url);
+      if (res.status === 401 || res.status === 429) { limited = true; return null; }
+      const o = await res.json();
+      if (o.Response === "False") {
+        if (/limit|invalid api key/i.test(o.Error ?? "")) { limited = true; return null; }
+        return { title_id: t.title_id, imdb_rating: null, rt_score: null }; // not on OMDb
+      }
+      const imdb = Number(o.imdbRating);
+      const rt = (o.Ratings ?? []).find((r: any) => r.Source === "Rotten Tomatoes")?.Value;
+      const rtNum = rt ? Number(String(rt).replace("%", "")) : NaN;
+      return {
+        title_id: t.title_id,
+        imdb_rating: Number.isFinite(imdb) && imdb >= 0 && imdb <= 10 ? imdb : null,
+        rt_score: Number.isFinite(rtNum) && rtNum >= 0 && rtNum <= 100 ? Math.round(rtNum) : null,
+      };
+    } catch (e) {
+      errors.push(`${t.imdb_id}: ${(e as Error).message}`);
+      return null;
+    }
+  });
+
+  const done = rows.filter((r) => r !== null);
+  let updated = 0;
+  if (done.length) {
+    const { data, error: e2 } = await db.rpc("set_title_scores", { p: done });
+    if (e2) errors.push(`set_title_scores: ${e2.message}`);
+    else updated = data as number;
+  }
+  return {
+    queued: queue?.length ?? 0,
+    updated,
+    with_imdb: done.filter((r) => r!.imdb_rating !== null).length,
+    with_rt: done.filter((r) => r!.rt_score !== null).length,
+    stopped_early: limited,
+    errors: errors.slice(0, 20),
+  };
 }
 
 // ---------- Helpers ----------
@@ -330,6 +386,10 @@ Deno.serve(async (req) => {
     await loadTrackedProviders();
     if (!trackedIds.size) return json({ error: "no subscribed service has a tmdb_provider_id" }, 500);
 
+    if (mode === "scores") {
+      const limit = Math.min(Math.max(Number(body.limit ?? 900), 1), 1000);
+      return json({ mode, ...await scores(limit, started) });
+    }
     if (mode === "estimate") return json({ mode, region: REGION, min_votes: MIN_VOTES, ...await estimate() });
     if (mode === "backfill") {
       const maxTitles = Math.min(Math.max(Number(body.max_titles ?? 400), 20), 1000);
