@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "What to Watch",
+    "slug": "what-to-watch",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.mubeenh04.whattowatch"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1b1b1e",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.mubeenh04.whattowatch"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-image",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#1b1b1e"
+        }
+      ],
+      "expo-web-browser"
+    ],
+    "scheme": "whattowatch",
+    "backgroundColor": "#1b1b1e"
+  }
+}

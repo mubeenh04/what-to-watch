@@ -1,0 +1,38 @@
+// Dark grey and red, taken from the approved mockup (designs/What to Watch - mockup.html).
+export const colors = {
+  bg: '#141416',
+  app: '#1b1b1e',
+  surface: '#242428',
+  surface2: '#2e2e33',
+  sheet: '#202024',
+  nav: '#19191c',
+  line: '#3a3a40',
+  text: '#eeeef0',
+  muted: '#9c9ca5',
+  synopsis: '#c9c9cf',
+  red: '#e3303c',
+  redDeep: '#9e1b25',
+  redTint: 'rgba(227,48,60,0.14)',
+  redTintBorder: 'rgba(227,48,60,0.35)',
+  redSoftText: '#ffb3b8',
+  imdb: '#f5c518',
+  ok: '#4fbf7a',
+  okTint: 'rgba(79,191,122,0.14)',
+  okBorder: 'rgba(79,191,122,0.5)',
+  okText: '#9be3b6',
+  letterboxd: '#ff8000',
+  letterboxdBorder: 'rgba(255,128,0,0.45)',
+  letterboxdText: '#ffc08a',
+  toast: '#f1f1f3',
+  toastText: '#141416',
+} as const;
+
+export const fonts = {
+  display: 'ArchivoNarrow_700Bold',
+  displaySemi: 'ArchivoNarrow_600SemiBold',
+  body: 'Figtree_400Regular',
+  bodyMedium: 'Figtree_500Medium',
+  bodySemi: 'Figtree_600SemiBold',
+  bodyBold: 'Figtree_700Bold',
+  bodyHeavy: 'Figtree_800ExtraBold',
+} as const;
