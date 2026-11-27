@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { displayNameFor, friendlyOAuthError, parseOAuthRedirect } from '../src/lib/oauth-redirect';
+import { displayNameFor, friendlyOAuthError, parseOAuthRedirect, pickRedirectUrl } from '../src/lib/oauth-redirect';
 
 test('reads tokens from the fragment (Expo Go URL)', () => {
   const r = parseOAuthRedirect('exp://192.168.1.20:8081/--/auth/callback#access_token=AAA&expires_in=3600&refresh_token=RRR&token_type=bearer');
@@ -42,4 +42,31 @@ test('display name prefers Google full name', () => {
   assert.equal(displayNameFor({ email: 'sam@example.com', user_metadata: { full_name: 'Sam Smith' } }), 'Sam Smith');
   assert.equal(displayNameFor({ email: 'sam@example.com', user_metadata: {} }), 'sam');
   assert.equal(displayNameFor({ email: null, user_metadata: null }), 'Me');
+});
+
+test('return address: keeps a good exp:// URL', () => {
+  const u = 'exp://192.168.1.5:8081/--/auth/callback';
+  assert.equal(pickRedirectUrl({ createdUrl: u, linkingUri: 'exp://192.168.1.5:8081/--/' }), u);
+});
+
+test('return address: Expo Go but createURL gave the app scheme', () => {
+  assert.equal(
+    pickRedirectUrl({ createdUrl: 'whattowatch://auth/callback', linkingUri: 'exp://192.168.1.5:8081/--/' }),
+    'exp://192.168.1.5:8081/--/auth/callback',
+  );
+  assert.equal(
+    pickRedirectUrl({ createdUrl: 'whattowatch://auth/callback', linkingUri: 'whattowatch://', expoGoHost: '10.0.0.2:8081' }),
+    'exp://10.0.0.2:8081/--/auth/callback',
+  );
+  assert.equal(
+    pickRedirectUrl({ createdUrl: 'whattowatch://auth/callback', linkingUri: 'exps://abc-anonymous-8081.exp.direct/--/' }),
+    'exps://abc-anonymous-8081.exp.direct/--/auth/callback',
+  );
+});
+
+test('return address: installed app keeps whattowatch://', () => {
+  assert.equal(
+    pickRedirectUrl({ createdUrl: 'whattowatch://auth/callback', linkingUri: 'whattowatch://', expoGoHost: null }),
+    'whattowatch://auth/callback',
+  );
 });

@@ -77,7 +77,8 @@ Restart the app (`npx expo start`, scan the QR code again).
   exactly the Supabase one above.
 - If you see "Access blocked: app has not completed verification", add that Gmail as a test user
   (step 1.4) or publish the app.
-- `npx expo start --tunnel` works too (its `exp://…exp.direct` address is covered by `exp://**`).
+- `npx expo start --tunnel` uses an `exps://…exp.direct` address: add `exps://**` to the Redirect URLs too if you use tunnel mode.
+- If Google's page spins after you tap Continue, the Metro terminal on your Mac prints a `[google-auth] return address:` line. In Expo Go it must start with `exp://`.
 - A Google account that already has its own What to Watch account can't be linked to a second
   one. The app says so; sign in with Google to use that account instead.
 

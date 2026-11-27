@@ -57,3 +57,25 @@ export function displayNameFor(user: { email?: string | null; user_metadata?: Re
   const pick = (k: string) => (typeof md[k] === 'string' && (md[k] as string).trim() ? (md[k] as string).trim() : null);
   return (pick('display_name') || pick('full_name') || pick('name') || user.email?.split('@')[0] || 'Me').slice(0, 100);
 }
+
+/**
+ * The address Supabase should send the phone back to after Google.
+ * Expo Go only reopens through exp:// (its linkingUri looks like exp://192.168.1.5:8081/--/), and on
+ * some Expo Go versions expo-linking's createURL wrongly returns the app's own scheme
+ * (whattowatch://), which Expo Go can't open: the browser then spins forever. So when we can see
+ * an Expo Go address we build the return address from it; otherwise we use createURL's answer.
+ */
+export function pickRedirectUrl(opts: {
+  createdUrl: string;
+  linkingUri?: string | null;
+  expoGoHost?: string | null;
+  path?: string;
+}): string {
+  const path = (opts.path ?? 'auth/callback').replace(/^\//, '');
+  if (/^exps?:\/\//.test(opts.createdUrl)) return opts.createdUrl;
+  const lu = opts.linkingUri ?? '';
+  const m = lu.match(/^(exps?:\/\/[^/?#]+)/);
+  if (m) return `${m[1]}/--/${path}`;
+  if (opts.expoGoHost) return `exp://${opts.expoGoHost.replace(/\/.*$/, '')}/--/${path}`;
+  return opts.createdUrl;
+}

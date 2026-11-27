@@ -1,8 +1,9 @@
 import type { UserIdentity } from '@supabase/supabase-js';
+import Constants from 'expo-constants';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
-import { friendlyOAuthError, parseOAuthRedirect } from './oauth-redirect';
+import { friendlyOAuthError, parseOAuthRedirect, pickRedirectUrl } from './oauth-redirect';
 import { supabase } from './supabase';
 
 // Closes the browser popup on web; does nothing on phones.
@@ -15,12 +16,19 @@ WebBrowser.maybeCompleteAuthSession();
  * Both are covered by adding exp://** and whattowatch://** to Supabase's Redirect URLs.
  */
 export function authRedirectUrl(): string {
-  return Linking.createURL('auth/callback');
+  const expoGo = Constants.expoGoConfig as { debuggerHost?: string } | null;
+  return pickRedirectUrl({
+    createdUrl: Linking.createURL('auth/callback'),
+    linkingUri: Constants.linkingUri,
+    // Only Expo Go has expoGoConfig (this project has no development-client builds).
+    expoGoHost: expoGo ? (Constants.expoConfig?.hostUri ?? expoGo.debuggerHost ?? null) : null,
+  });
 }
 
 export type GoogleResult = { ok: true } | { ok: false; cancelled?: boolean; message: string };
 
 async function runBrowser(url: string, redirectTo: string): Promise<GoogleResult> {
+  if (__DEV__) console.log(`[google-auth] return address: ${redirectTo}`);
   const result = await WebBrowser.openAuthSessionAsync(url, redirectTo);
   if (result.type !== 'success') return { ok: false, cancelled: true, message: 'Google sign-in was cancelled.' };
 
