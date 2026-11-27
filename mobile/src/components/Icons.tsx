@@ -95,3 +95,9 @@ export const MetacriticIcon = ({ size = 18 }: { size?: number }) => (
     <Path d="M6.5 16.5V8.2l3 4.6 2.5-4.6 2.5 4.6 3-4.6v8.3" fill="none" stroke="#fff" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
   </Svg>
 );
+
+export const StarIcon = ({ size = 24, color = '#fff', filled = false }: { size?: number; color?: string; filled?: boolean }) => (
+  <Svg {...{ width: size, height: size, viewBox: '0 0 24 24' }} fill={filled ? color : 'none'} stroke={color} strokeWidth={1.8} strokeLinejoin="round">
+    <Path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" />
+  </Svg>
+);

@@ -1,5 +1,12 @@
 import Constants from 'expo-constants';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import { useState } from 'react';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { listRatedMovies } from '../lib/api';
+import { buildLetterboxdCsv } from '../lib/letterboxd';
+import { supabase } from '../lib/supabase';
 
 import { colors, fonts } from '../lib/theme';
 import { useSession } from '../state/session';
@@ -8,11 +15,62 @@ import { BottomSheet } from './BottomSheet';
 /** Account and About: signed-in email, sign out, and the data attributions TMDB requires. */
 export function AboutSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { session, signOut } = useSession();
+  const [exporting, setExporting] = useState(false);
+  const [exportNote, setExportNote] = useState<string | null>(null);
+
+  /** Writes the ratings CSV and opens the share sheet so it can be saved or sent to a computer. */
+  const exportRatings = async () => {
+    setExporting(true);
+    setExportNote(null);
+    try {
+      const { csv, count } = buildLetterboxdCsv(await listRatedMovies(supabase));
+      if (!count) {
+        setExportNote('No rated films yet. Rate films in History first.');
+        return;
+      }
+      const file = new File(Paths.cache, 'what-to-watch-letterboxd-ratings.csv');
+      if (file.exists) file.delete();
+      file.create();
+      file.write(csv);
+      if (!(await Sharing.isAvailableAsync())) {
+        setExportNote('Sharing is not available on this device.');
+        return;
+      }
+      await Sharing.shareAsync(file.uri, {
+        mimeType: 'text/csv',
+        UTI: 'public.comma-separated-values-text',
+        dialogTitle: 'Letterboxd ratings',
+      });
+      setExportNote(`Exported ${count} rated film${count === 1 ? '' : 's'}.`);
+    } catch (e) {
+      setExportNote(`Couldn't export: ${(e as Error)?.message || 'try again'}`);
+    } finally {
+      setExporting(false);
+    }
+  };
   return (
     <BottomSheet visible={visible} onClose={onClose} header={<Text style={styles.h2}>ABOUT</Text>}>
       <View style={styles.body}>
         <Text style={styles.label}>SIGNED IN AS</Text>
         <Text style={styles.text}>{session?.user.email ?? '—'}</Text>
+
+        <Text style={styles.label}>LETTERBOXD</Text>
+        <Text style={styles.small}>
+          Export the ratings you gave in History as a file, then upload it on letterboxd.com under Settings, then Import.
+          Letterboxd doesn't allow apps to send ratings directly.
+        </Text>
+        <Pressable
+          style={({ pressed }) => [styles.exportBtn, pressed && { opacity: 0.8 }]}
+          disabled={exporting}
+          onPress={exportRatings}
+          accessibilityRole="button"
+        >
+          {exporting ? <ActivityIndicator color={colors.letterboxdText} /> : <Text style={styles.exportText}>Export ratings for Letterboxd</Text>}
+        </Pressable>
+        {exportNote && <Text style={styles.small}>{exportNote}</Text>}
+        <Pressable onPress={() => Linking.openURL('https://letterboxd.com/import/')}>
+          <Text style={styles.link}>letterboxd.com/import</Text>
+        </Pressable>
 
         <Text style={styles.label}>DATA</Text>
         <View style={styles.tmdbRow}>
@@ -53,6 +111,15 @@ export function AboutSheet({ visible, onClose }: { visible: boolean; onClose: ()
 }
 
 const styles = StyleSheet.create({
+  exportBtn: {
+    borderWidth: 1,
+    borderColor: colors.letterboxdBorder,
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: 'center',
+    backgroundColor: colors.surface2,
+  },
+  exportText: { color: colors.letterboxdText, fontFamily: fonts.bodyBold, fontSize: 14 },
   body: { paddingHorizontal: 20, gap: 8 },
   h2: {
     color: colors.text,
