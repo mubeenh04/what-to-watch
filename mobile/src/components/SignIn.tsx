@@ -2,16 +2,18 @@ import { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { signInWithGoogle } from '../lib/google-auth';
 import { supabase } from '../lib/supabase';
 import { colors, fonts } from '../lib/theme';
+import { GoogleIcon } from './Icons';
 
-/** Email and password sign-in with Supabase Auth. */
+/** Sign in or create an account with Google, or with email and password, through Supabase Auth. */
 export function SignIn() {
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<false | 'email' | 'google'>(false);
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
 
   const submit = async () => {
@@ -20,7 +22,7 @@ export function SignIn() {
       setMessage({ text: 'Enter your email and a password of at least 6 characters.', error: true });
       return;
     }
-    setBusy(true);
+    setBusy('email');
     setMessage(null);
     try {
       if (mode === 'signin') {
@@ -41,6 +43,19 @@ export function SignIn() {
     }
   };
 
+  const google = async () => {
+    setBusy('google');
+    setMessage(null);
+    try {
+      const res = await signInWithGoogle();
+      if (!res.ok && !res.cancelled) setMessage({ text: res.message, error: true });
+    } catch (err) {
+      setMessage({ text: (err as Error).message || 'Google sign-in failed.', error: true });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -55,6 +70,26 @@ export function SignIn() {
         </Text>
 
         <View style={styles.form}>
+          <Pressable
+            style={({ pressed }) => [styles.google, (pressed || !!busy) && { opacity: 0.8 }]}
+            onPress={google}
+            disabled={!!busy}
+            accessibilityRole="button"
+          >
+            {busy === 'google' ? (
+              <ActivityIndicator color="#1f1f1f" />
+            ) : (
+              <>
+                <GoogleIcon size={18} />
+                <Text style={styles.googleText}>{mode === 'signin' ? 'Sign in with Google' : 'Sign up with Google'}</Text>
+              </>
+            )}
+          </Pressable>
+          <View style={styles.orRow}>
+            <View style={styles.orLine} />
+            <Text style={styles.orText}>or use email</Text>
+            <View style={styles.orLine} />
+          </View>
           <TextInput
             style={styles.input}
             placeholder="Email"
@@ -80,8 +115,8 @@ export function SignIn() {
             editable={!busy}
           />
           {message && <Text style={[styles.msg, message.error && { color: colors.redSoftText }]}>{message.text}</Text>}
-          <Pressable style={({ pressed }) => [styles.primary, (pressed || busy) && { opacity: 0.8 }]} onPress={submit} disabled={busy}>
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>{mode === 'signin' ? 'Sign in' : 'Create account'}</Text>}
+          <Pressable style={({ pressed }) => [styles.primary, (pressed || !!busy) && { opacity: 0.8 }]} onPress={submit} disabled={!!busy}>
+            {busy === 'email' ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>{mode === 'signin' ? 'Sign in' : 'Create account'}</Text>}
           </Pressable>
           <Pressable
             onPress={() => {
@@ -135,5 +170,22 @@ const styles = StyleSheet.create({
   msg: { color: colors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
   primary: { backgroundColor: colors.red, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
   primaryText: { color: '#fff', fontFamily: fonts.bodyBold, fontSize: 15 },
+  // Google's "light" button style: white, grey border, dark text, the coloured G.
+  google: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#747775',
+    borderRadius: 12,
+    paddingVertical: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    minHeight: 48,
+  },
+  googleText: { color: '#1f1f1f', fontFamily: fonts.bodySemi, fontSize: 15 },
+  orRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 4 },
+  orLine: { flex: 1, height: 1, backgroundColor: colors.line },
+  orText: { color: colors.muted, fontFamily: fonts.body, fontSize: 12 },
   switch: { color: colors.muted, fontFamily: fonts.bodySemi, fontSize: 13, textAlign: 'center', marginTop: 8 },
 });

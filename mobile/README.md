@@ -18,7 +18,8 @@ You need Node.js 20 or newer on your Mac (`node -v` to check; install from nodej
 3. A QR code appears in Terminal.
    - **iPhone:** open the Camera app, point it at the QR code and tap the banner.
    - **Android:** open Expo Go and tap **Scan QR code**.
-4. The first time, tap **New here? Create an account**, then confirm the email Supabase sends
+4. The first time, tap **Sign up with Google** (after the one-off setup in
+   [GOOGLE_SIGN_IN.md](GOOGLE_SIGN_IN.md)), or **New here? Create an account**, then confirm the email Supabase sends
    you and sign in. Your first sign-in sorts every title into Home (on Netflix in South Africa or
    on a drive) or Explore (everything else). This takes a few seconds.
 
@@ -39,6 +40,8 @@ Saving a file on the Mac reloads the app on the phone straight away.
 | `src/components/Pager.tsx` | Swipe left and right between a page's tabs |
 | `src/components/TitleList.tsx` | Paged list, moves between sections with Undo |
 | `src/lib/api.ts` | Every Supabase query and update |
+| `src/lib/google-auth.ts` | Google sign-in, sign-up and linking (Supabase Auth); setup in `GOOGLE_SIGN_IN.md` |
+| `src/components/AboutSheet.tsx` | Person icon: sign-in methods (Link Google account), sign out, TMDB credits |
 | `src/lib/format.ts` | Turns database rows into cards (tested in `tests/`) |
 
 A title lives in exactly one section. Each button changes the title's `user_title.status`, but

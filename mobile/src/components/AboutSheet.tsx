@@ -1,4 +1,7 @@
+import type { UserIdentity } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { useState } from 'react';
@@ -8,11 +11,13 @@ import { listRatedMovies } from '../lib/api';
 import { buildLetterboxdCsv } from '../lib/letterboxd';
 import { supabase } from '../lib/supabase';
 
+import { linkGoogle, listIdentities, unlinkGoogle } from '../lib/google-auth';
 import { colors, fonts } from '../lib/theme';
 import { useSession } from '../state/session';
 import { BottomSheet } from './BottomSheet';
+import { GoogleIcon } from './Icons';
 
-/** Account and About: signed-in email, sign out, and the data attributions TMDB requires. */
+/** Account and About: signed-in email, sign-in methods (link Google), sign out, and TMDB's attributions. */
 export function AboutSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { session, signOut } = useSession();
   const [exporting, setExporting] = useState(false);
@@ -54,6 +59,8 @@ export function AboutSheet({ visible, onClose }: { visible: boolean; onClose: ()
         <Text style={styles.label}>SIGNED IN AS</Text>
         <Text style={styles.text}>{session?.user.email ?? '—'}</Text>
 
+        <Text style={styles.label}>SIGN-IN METHODS</Text>
+        {visible && <SignInMethods />}
         <Text style={styles.label}>LETTERBOXD</Text>
         <Text style={styles.small}>
           Export the ratings you gave in History as a file, then upload it on letterboxd.com under Settings, then Import.
@@ -110,7 +117,106 @@ export function AboutSheet({ visible, onClose }: { visible: boolean; onClose: ()
   );
 }
 
+/**
+ * Lists how this account can sign in and lets an existing email-and-password member add Google.
+ * Linking keeps the same account (same user id), so every list stays as it is.
+ */
+function SignInMethods() {
+  const [identities, setIdentities] = useState<UserIdentity[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setIdentities(await listIdentities());
+    } catch (e) {
+      setIdentities([]);
+      setMessage({ text: (e as Error).message || 'Could not load sign-in methods.', error: true });
+    }
+  }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (!identities) return <ActivityIndicator color={colors.red} style={{ alignSelf: 'flex-start' }} />;
+
+  const email = identities.find((i) => i.provider === 'email');
+  const google = identities.find((i) => i.provider === 'google');
+  const googleEmail = (google?.identity_data?.email as string | undefined) ?? null;
+
+  const link = async () => {
+    setBusy(true);
+    setMessage(null);
+    const res = await linkGoogle();
+    if (res.ok) setMessage({ text: 'Google is linked. You can now sign in with Google or your password, and your lists stay the same.' });
+    else if (!res.cancelled) setMessage({ text: res.message, error: true });
+    await load();
+    setBusy(false);
+  };
+  const unlink = async () => {
+    if (!google) return;
+    setBusy(true);
+    setMessage(null);
+    const res = await unlinkGoogle(google);
+    if (res.ok) setMessage({ text: 'Google is no longer linked. Sign in with your email and password from now on.' });
+    else setMessage({ text: res.message, error: true });
+    await load();
+    setBusy(false);
+  };
+
+  return (
+    <View style={{ gap: 8 }}>
+      {email && <Text style={styles.text}>Email and password</Text>}
+      {google ? (
+        <View style={styles.methodRow}>
+          <GoogleIcon size={16} />
+          <Text style={[styles.text, { flex: 1 }]}>Google{googleEmail ? ` · ${googleEmail}` : ''}</Text>
+          {identities.length > 1 && (
+            <Pressable onPress={unlink} disabled={busy} hitSlop={8}>
+              <Text style={styles.link}>Unlink</Text>
+            </Pressable>
+          )}
+        </View>
+      ) : (
+        <Pressable
+          style={({ pressed }) => [styles.googleBtn, (pressed || busy) && { opacity: 0.8 }]}
+          onPress={link}
+          disabled={busy}
+          accessibilityRole="button"
+        >
+          {busy ? (
+            <ActivityIndicator color="#1f1f1f" />
+          ) : (
+            <>
+              <GoogleIcon size={18} />
+              <Text style={styles.googleText}>Link Google account</Text>
+            </>
+          )}
+        </Pressable>
+      )}
+      {!google && !message && (
+        <Text style={styles.small}>Sign in with Google next time instead of your password. Your lists stay the same.</Text>
+      )}
+      {message && <Text style={[styles.small, message.error && { color: colors.redSoftText }]}>{message.text}</Text>}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  methodRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  googleBtn: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#747775',
+    borderRadius: 12,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    minHeight: 46,
+  },
+  googleText: { color: '#1f1f1f', fontFamily: fonts.bodySemi, fontSize: 15 },
   exportBtn: {
     borderWidth: 1,
     borderColor: colors.letterboxdBorder,
