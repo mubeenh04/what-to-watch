@@ -4,8 +4,8 @@ import type { SupabaseClient, User } from '@supabase/supabase-js';
 
 import { PAGE_SIZE } from './config';
 import { toCard } from './format';
-import { displayNameFor } from './oauth-redirect';
 import type { RatedMovie } from './letterboxd';
+import { displayNameFor } from './oauth-redirect';
 import type { Action, CardTitle, Genre, HomeFilters, Status, TitleRow, TitleType } from './types';
 
 export type Section = 'home' | 'explore' | 'watchlist' | 'history';
