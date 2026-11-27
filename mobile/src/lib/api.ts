@@ -4,6 +4,7 @@ import type { SupabaseClient, User } from '@supabase/supabase-js';
 
 import { PAGE_SIZE } from './config';
 import { toCard } from './format';
+import { displayNameFor } from './oauth-redirect';
 import type { Action, CardTitle, Genre, HomeFilters, Status, TitleRow, TitleType } from './types';
 
 export type Section = 'home' | 'explore' | 'watchlist' | 'history';
@@ -317,10 +318,10 @@ export async function ensureProfile(client: SupabaseClient, user: User): Promise
   if (error) throw error;
   if (data) return data as Profile;
 
-  const displayName = (user.user_metadata?.display_name as string | undefined) || user.email?.split('@')[0] || 'Me';
+  const displayName = displayNameFor(user);
   const { data: created, error: insErr } = await client
     .from('app_user')
-    .insert({ user_id: user.id, display_name: displayName.slice(0, 100), region_code: 'ZA' })
+    .insert({ user_id: user.id, display_name: displayName, region_code: 'ZA' })
     .select('user_id,display_name,region_code')
     .single();
   if (insErr) {
