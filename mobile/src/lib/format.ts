@@ -17,8 +17,19 @@ export function toScore(v: number | string | null | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-export function letterboxdUrl(name: string, stored: string | null): string {
+/**
+ * Link to a title on Letterboxd. The film page we matched wins; otherwise movies use
+ * letterboxd.com/tmdb/<id>, which Letterboxd redirects to the film's page. Letterboxd covers
+ * few series, so series (and anything without a TMDB id) get a search link instead.
+ */
+export function letterboxdUrl(
+  name: string,
+  stored: string | null,
+  tmdbId?: number | null,
+  type: 'movie' | 'series' = 'movie',
+): string {
   if (stored) return stored;
+  if (type === 'movie' && tmdbId) return `https://letterboxd.com/tmdb/${tmdbId}/`;
   return 'https://letterboxd.com/search/' + encodeURIComponent(name) + '/';
 }
 
@@ -80,7 +91,8 @@ export function toCard(row: TitleRow): CardTitle {
     genres,
     cast,
     where: whereToWatch(row),
-    letterboxdUrl: letterboxdUrl(t.name, t.letterboxd_url),
+    letterboxdUrl: letterboxdUrl(t.name, t.letterboxd_url, t.tmdb_id, t.title_type),
+    rating: toScore(row.user_rating),
     watchedAt: row.watched_at,
     release: releaseInfo(row),
   };

@@ -138,3 +138,16 @@ test('release status line', () => {
   });
   assert.equal(shortDate('2025-03-02', now), '2 Mar 2025');
 });
+
+test('letterboxd links: movies by TMDB id, series and unknown ids by search', () => {
+  assert.equal(letterboxdUrl('Dune', null, 693134, 'movie'), 'https://letterboxd.com/tmdb/693134/');
+  assert.equal(letterboxdUrl('Dune', 'https://letterboxd.com/film/dune-part-two/', 693134, 'movie'), 'https://letterboxd.com/film/dune-part-two/');
+  assert.equal(letterboxdUrl('Severance', null, 95396, 'series'), 'https://letterboxd.com/search/Severance/');
+  assert.equal(letterboxdUrl('Past Lives', null, null, 'movie'), 'https://letterboxd.com/search/Past%20Lives/');
+});
+
+test('card carries the user rating', () => {
+  assert.equal(toCard({ ...row(), user_rating: '3.5' }).rating, 3.5);
+  assert.equal(toCard(row()).rating, null);
+  assert.equal(toCard(row({ tmdb_id: 7 })).letterboxdUrl, 'https://letterboxd.com/tmdb/7/');
+});

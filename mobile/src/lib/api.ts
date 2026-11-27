@@ -5,11 +5,12 @@ import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { PAGE_SIZE } from './config';
 import { toCard } from './format';
 import { displayNameFor } from './oauth-redirect';
+import type { RatedMovie } from './letterboxd';
 import type { Action, CardTitle, Genre, HomeFilters, Status, TitleRow, TitleType } from './types';
 
 export type Section = 'home' | 'explore' | 'watchlist' | 'history';
 
-const BASE_TITLE_FIELDS = `title_id,title_type,name,release_year,end_year,synopsis,poster_url,imdb_rating,metacritic_score,letterboxd_url,
+const BASE_TITLE_FIELDS = `title_id,title_type,name,release_year,end_year,synopsis,poster_url,imdb_rating,metacritic_score,letterboxd_url,tmdb_id,
   title_genre(rank,genre(name)),
   title_cast(billing_order,person(name)),
   title_availability(source_type,watch_url,streaming_service(name,logo_url,display_order),local_drive(name))`;
@@ -73,7 +74,7 @@ function sectionQuery(
   const f = filters;
   const fields =
     select === 'rows'
-      ? `title_id,status,status_changed_at,watched_at,title!inner(${titleFields()}${filterEmbeds(f)})`
+      ? `title_id,status,status_changed_at,watched_at,user_rating,title!inner(${titleFields()}${filterEmbeds(f)})`
       : `title_id,title!inner(title_type${filterEmbeds(f)})`;
   let q: Q = client
     .from('user_title')
@@ -330,4 +331,54 @@ export async function ensureProfile(client: SupabaseClient, user: User): Promise
     throw insErr;
   }
   return created as Profile;
+}
+
+/** Saves (or clears, with null) the user's rating for a title, in Letterboxd stars. */
+export async function setRating(
+  client: SupabaseClient,
+  userId: string,
+  titleId: number,
+  rating: number | null,
+): Promise<void> {
+  const { data, error } = await client
+    .from('user_title')
+    .update({ user_rating: rating })
+    .eq('user_id', userId)
+    .eq('title_id', titleId)
+    .select('title_id');
+  if (error) throw error;
+  if (!data?.length) throw new Error('That title is no longer in your list.');
+}
+
+/** Every rated movie in History, as rows ready for the Letterboxd CSV. */
+export async function listRatedMovies(client: SupabaseClient): Promise<RatedMovie[]> {
+  const out: RatedMovie[] = [];
+  const size = 500;
+  for (let from = 0; ; from += size) {
+    const { data, error } = await client
+      .from('user_title')
+      .select('user_rating,title!inner(title_type,name,release_year,tmdb_id,imdb_id)')
+      .eq('status', 'history')
+      .eq('title.title_type', 'movie')
+      .not('user_rating', 'is', null)
+      .order('title_id')
+      .range(from, from + size - 1);
+    if (error) throw error;
+    // PostgREST types an embedded to-one relation loosely, so read it as unknown.
+    const rows = (data ?? []) as unknown as {
+      user_rating: number | string;
+      title: { name: string; release_year: number; tmdb_id: number | null; imdb_id: string | null };
+    }[];
+    for (const r of rows) {
+      out.push({
+        name: r.title.name,
+        year: r.title.release_year,
+        tmdbId: r.title.tmdb_id,
+        imdbId: r.title.imdb_id,
+        rating: Number(r.user_rating),
+      });
+    }
+    if (rows.length < size) break;
+  }
+  return out;
 }

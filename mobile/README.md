@@ -53,7 +53,7 @@ only while it is still in the section the card came from, and logs the move in
 | Home | Watched → History, Hide → Hidden (Filters → "Show again" brings hidden titles back) |
 | Explore | Add to Watchlist, Watched → History, Remove → block list (never recommended again) |
 | Watchlist | Mark downloaded → Home |
-| History | Rate on Letterboxd |
+| History | Star rating (half stars), Open on Letterboxd. Ratings export from About as a Letterboxd import CSV |
 
 Search (Home): fuzzy matching on titles and the top-billed actors, so typos still match. It uses
 the database function `search_my_titles` (migration `20261126194000_title_search.sql`, already
