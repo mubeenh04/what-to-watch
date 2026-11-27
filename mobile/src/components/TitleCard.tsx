@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { memo, useState, type ReactNode } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { StarRating } from './StarRating';
 import { formatWatched, yearLabel } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
 import type { Action, CardTitle, ReleaseInfo, ReleaseStatus, WhereToWatch } from '../lib/types';
@@ -29,6 +30,7 @@ type Props = {
   item: CardTitle;
   kind: CardKind;
   onAction: (item: CardTitle, action: Action) => void;
+  onRate?: (item: CardTitle, rating: number | null) => void;
 };
 
 const TAG: Record<CardKind, string | null> = { home: null, explore: 'New to you', watchlist: 'To get', history: 'Watched' };
@@ -181,7 +183,7 @@ function ActionButton({ label, icon, onPress, variant = 'default', style }: BtnP
   );
 }
 
-function TitleCardInner({ item, kind, onAction }: Props) {
+function TitleCardInner({ item, kind, onAction, onRate }: Props) {
   const [open, setOpen] = useState(false);
   const act = (a: Action) => () => onAction(item, a);
 
@@ -228,11 +230,16 @@ function TitleCardInner({ item, kind, onAction }: Props) {
       </View>
     );
   } else {
-    meta = <Text style={styles.watchedOn}>{formatWatched(item.watchedAt)}</Text>;
+    meta = (
+      <View style={styles.rateRow}>
+        <Text style={styles.watchedOn}>{formatWatched(item.watchedAt)}</Text>
+        {onRate && <StarRating value={item.rating} onChange={(v) => onRate(item, v)} />}
+      </View>
+    );
     actions = (
       <View style={styles.actions}>
         <ActionButton
-          label="Rate on Letterboxd"
+          label={item.type === 'movie' ? 'Open on Letterboxd' : 'Find on Letterboxd'}
           variant="letterboxd"
           icon={<ExternalIcon color={colors.letterboxdText} />}
           onPress={() => Linking.openURL(item.letterboxdUrl)}
@@ -335,6 +342,7 @@ const styles = StyleSheet.create({
   releaseDot: { width: 6, height: 6, borderRadius: 3 },
   releaseLabel: { fontFamily: fonts.bodyBold, fontSize: 11.5 },
   releaseDetail: { color: colors.muted, fontFamily: fonts.body, fontSize: 11.5 },
+  rateRow: { gap: 6 },
   watchedOn: { color: colors.muted, fontFamily: fonts.body, fontSize: 12 },
   actionsCol: { gap: 8, marginTop: 4 },
   actions: { flexDirection: 'row', gap: 8, marginTop: 4 },

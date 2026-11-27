@@ -8,6 +8,7 @@ export type TitleRow = {
   status: Status;
   status_changed_at: string;
   watched_at: string | null;
+  user_rating?: number | string | null;
   title: {
     title_id: number;
     title_type: TitleType;
@@ -19,6 +20,7 @@ export type TitleRow = {
     imdb_rating: number | string | null;
     metacritic_score: number | null;
     letterboxd_url: string | null;
+    tmdb_id?: number | null;
     release_status?: ReleaseStatus | null;
     next_release_type?: ReleaseType | null;
     next_release_date?: string | null;
@@ -65,6 +67,8 @@ export type CardTitle = {
   cast: string[];
   where: WhereToWatch[];
   letterboxdUrl: string;
+  /** The user's own rating in Letterboxd stars (0.5 to 5), or null. */
+  rating: number | null;
   watchedAt: string | null;
   release: ReleaseInfo | null;
 };

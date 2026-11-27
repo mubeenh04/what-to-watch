@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 
-import { listTitles, moveTitle, StaleMoveError, type Section } from '../lib/api';
+import { listTitles, moveTitle, setRating, StaleMoveError, type Section } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { colors, fonts } from '../lib/theme';
 import type { Action, CardTitle, HomeFilters, Status, TitleType } from '../lib/types';
@@ -155,6 +155,21 @@ export function TitleList({ section, type, kind, filters, search, hasActiveFilte
     [items, userId, bump, toast],
   );
 
+  const onRate = useCallback(
+    async (item: CardTitle, rating: number | null) => {
+      Haptics.selectionAsync().catch(() => {});
+      const previous = item.rating;
+      setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, rating } : i)));
+      try {
+        await setRating(supabase, userId, item.id, rating);
+      } catch {
+        setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, rating: previous } : i)));
+        toast("Couldn't save your rating. Try again.", { error: true });
+      }
+    },
+    [userId, toast],
+  );
+
   if (loading && !items.length) {
     return (
       <View style={styles.center}>
@@ -167,7 +182,7 @@ export function TitleList({ section, type, kind, filters, search, hasActiveFilte
     <FlatList
       data={items}
       keyExtractor={(i) => String(i.id)}
-      renderItem={({ item }) => <TitleCard item={item} kind={kind} onAction={onAction} />}
+      renderItem={({ item }) => <TitleCard item={item} kind={kind} onAction={onAction} onRate={kind === 'history' ? onRate : undefined} />}
       contentContainerStyle={styles.list}
       ItemSeparatorComponent={Separator}
       onEndReached={loadMore}
