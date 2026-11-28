@@ -11,7 +11,7 @@
 // Codes live 10 minutes and are deleted as soon as the TV has used them.
 // Deploy with verify_jwt off (start and poll come from a TV that isn't signed in yet):
 //   npx supabase functions deploy tv-sign-in --no-verify-jwt
-// Needs the table from migration 20261128150000_tv_sign_in.sql.
+// Needs the table from migration 20261128153000_tv_sign_in.sql.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 

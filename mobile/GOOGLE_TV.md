@@ -36,12 +36,12 @@ work on the TV as well.
 
 This needs two one-off steps in Supabase:
 
-1. **Table**: run `supabase/migrations/20261128150000_tv_sign_in.sql` in the SQL editor
-   (also in the project files as `sql/20261128150000_tv_sign_in.sql`).
-2. **Function**: deploy `supabase/functions/tv-sign-in` with JWT verification off:
+1. **Table**: run `supabase/migrations/20261128153000_tv_sign_in.sql` in the SQL editor
+   (also in the project files as `sql/20261128153000_tv_sign_in.sql`).
+2. **Function**: `tv-sign-in` is deployed (2026-11-28). To redeploy after changes, with JWT verification off:
    `npx supabase functions deploy tv-sign-in --no-verify-jwt --project-ref ezedrdpzhgtwrfjmupvf`
 
-Until both are done, the TV says phone sign-in isn't switched on and offers email and password.
+Until the table exists, the TV says phone sign-in isn't switched on and offers email and password.
 
 How it works: the TV asks the function for a code and keeps a secret to itself. The phone approves
 the code with its own sign-in. The TV then collects a one-time sign-in token (made with Supabase's
