@@ -23,6 +23,9 @@ You need Node.js 20 or newer on your Mac (`node -v` to check; install from nodej
    you and sign in. Your first sign-in sorts every title into Home (on Netflix in South Africa or
    on a drive) or Explore (everything else). This takes a few seconds.
 
+Google sign-in in Expo Go needs tunnel mode (`npx expo start --tunnel`, then open the `on.expo.app`
+entry in Expo Go); see GOOGLE_SIGN_IN.md. Email and password work either way.
+
 The phone and the Mac need to be on the same Wi-Fi. If they can't see each other (for example on
 a guest network), run `npx expo start --tunnel` instead.
 
