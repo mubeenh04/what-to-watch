@@ -3,6 +3,13 @@
     "name": "What to Watch",
     "slug": "what-to-watch",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -34,6 +41,7 @@
         }
       ],
       "expo-web-browser",
+      "expo-updates",
       "./plugins/with-android-tv"
     ],
     "scheme": "whattowatch",

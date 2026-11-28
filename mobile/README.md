@@ -88,11 +88,12 @@ npm test            # unit tests for card formatting
 database's row-level security only lets each signed-in user see the catalogue and change their own
 lists. Never put the service role key, the TMDB key or any other secret in this app.
 
-## Installing it properly later
+## Installing it properly
 
-Expo Go is for development. To install the app like any other app (no Mac running), build it with
-EAS: `npx eas-cli@latest build --profile preview --platform android` gives an APK you can install
-directly. iPhone installs outside Expo Go need an Apple Developer account ($99 a year) and
+Expo Go is for development. On Android phones and Google TV, install the app from this
+repository's GitHub Releases with Obtainium: it gets its own icon and keeps itself up to date
+(over-the-air updates for most changes, a new APK when native code changes). Setup and how to
+publish an update: [APP_UPDATES.md](APP_UPDATES.md). iPhone installs outside Expo Go need an Apple Developer account ($99 a year) and
 `npx eas-cli@latest build --platform ios`.
 
 Posters, titles and cast come from TMDB; where-to-watch data comes from JustWatch through TMDB.

@@ -1,8 +1,9 @@
-import Constants from 'expo-constants';
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { fonts } from '../lib/theme';
 import { SAFE_Y, px } from '../lib/tv';
+import { checkForUpdateNow, updatesEnabled, versionLabel } from '../lib/updates';
 import { useSession } from '../state/session';
 import { tvColors as c } from './focus';
 import { T, TvButton } from './ui';
@@ -10,6 +11,19 @@ import { T, TvButton } from './ui';
 /** Who is signed in, sign out, and TMDB's attribution. */
 export function AccountPanel({ onClose }: { onClose: () => void }) {
   const { session, profile, signOut } = useSession();
+  const [checking, setChecking] = useState(false);
+  const [updateNote, setUpdateNote] = useState<string | null>(null);
+  const checkUpdates = async () => {
+    setChecking(true);
+    setUpdateNote(null);
+    try {
+      if ((await checkForUpdateNow()) === 'up-to-date') setUpdateNote('You have the latest version.');
+    } catch {
+      setUpdateNote("Couldn't check for updates. Try again when the TV is online.");
+    } finally {
+      setChecking(false);
+    }
+  };
   return (
     <View style={StyleSheet.absoluteFill}>
       <View style={styles.dim} />
@@ -34,9 +48,13 @@ export function AccountPanel({ onClose }: { onClose: () => void }) {
             Scores from OMDb.
           </Text>
         </View>
-        <Text style={[T.small, { fontSize: px(18) }]}>Version {Constants.expoConfig?.version ?? '1.0.0'}</Text>
+        <Text style={[T.small, { fontSize: px(18) }]}>
+          {versionLabel()}
+          {updateNote ? `. ${updateNote}` : ''}
+        </Text>
         <View style={{ flexDirection: 'row', gap: px(16), marginTop: 'auto' }}>
           <TvButton label="Close" primary preferred onPress={onClose} />
+          {updatesEnabled && <TvButton label="Check for updates" busy={checking} onPress={checkUpdates} />}
           <TvButton
             label="Sign out"
             onPress={async () => {
