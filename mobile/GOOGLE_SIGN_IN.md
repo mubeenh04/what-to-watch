@@ -57,7 +57,16 @@ https://ezedrdpzhgtwrfjmupvf.supabase.co/auth/v1/callback
 
 ## Trying it
 
-Restart the app (`npx expo start`, scan the QR code again).
+Start the app in **tunnel mode** and open it from the tunnel entry in Expo Go:
+
+```bash
+npx expo start --tunnel
+```
+
+In Expo Go, open the server whose address ends in `on.expo.app` (not the `192.168…` one).
+Supabase refuses to send people back to a home-network address like `exp://192.168.0.81:8082`,
+even when it is listed in Redirect URLs, and falls back to `http://localhost:3000`, which a phone
+can't open. The tunnel address is a normal internet address, so Supabase accepts it.
 
 - **New people:** tap **Sign up with Google** (or **Sign in with Google**, it's the same thing).
   Choose the Google account; you land straight in the app and your lists are set up.
@@ -77,7 +86,7 @@ Restart the app (`npx expo start`, scan the QR code again).
   exactly the Supabase one above.
 - If you see "Access blocked: app has not completed verification", add that Gmail as a test user
   (step 1.4) or publish the app.
-- `npx expo start --tunnel` uses an `exps://…exp.direct` address: add `exps://**` to the Redirect URLs too if you use tunnel mode.
+- If Google sends you to **localhost refused to connect**, the app is on the home-network (`192.168…`) connection: use `--tunnel` as above. Keep `exps://**` in the Redirect URLs as well, for tunnels that use the secure scheme.
 - If Google's page spins after you tap Continue, the Metro terminal on your Mac prints a `[google-auth] return address:` line. In Expo Go it must start with `exp://`.
 - A Google account that already has its own What to Watch account can't be linked to a second
   one. The app says so; sign in with Google to use that account instead.
