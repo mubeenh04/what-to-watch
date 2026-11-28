@@ -1,6 +1,17 @@
 export type TitleType = 'movie' | 'series';
 export type Status = 'home' | 'explore' | 'watchlist' | 'history' | 'hidden' | 'removed';
-export type Action = 'watched' | 'hide' | 'unhide' | 'watchlist' | 'remove' | 'downloaded' | 'undo';
+export type Action =
+  | 'watched'
+  | 'hide'
+  | 'unhide'
+  | 'watchlist'
+  | 'remove'
+  | 'downloaded'
+  | 'undo'
+  /** Removed back to Explore (TV Removed page). */
+  | 'restore'
+  /** History back to Home (TV History page). */
+  | 'unwatched';
 
 /** Shape returned by the user_title query in api.ts. */
 export type TitleRow = {
@@ -9,6 +20,7 @@ export type TitleRow = {
   status_changed_at: string;
   watched_at: string | null;
   user_rating?: number | string | null;
+  recommendation_reason?: string | null;
   title: {
     title_id: number;
     title_type: TitleType;
@@ -70,6 +82,10 @@ export type CardTitle = {
   /** The user's own rating in Letterboxd stars (0.5 to 5), or null. */
   rating: number | null;
   watchedAt: string | null;
+  /** When it entered its current section, e.g. added to the Watchlist. */
+  statusChangedAt: string | null;
+  /** Why Explore suggests it, e.g. "Because you watched Dune". */
+  reason: string | null;
   release: ReleaseInfo | null;
 };
 

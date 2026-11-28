@@ -9,7 +9,16 @@ type ShowToast = (message: string, opts?: ToastOpts) => void;
 const Ctx = createContext<ShowToast>(() => {});
 
 /** Bottom toast with an optional Undo, like the mockup. `bottom` keeps it above the tab bar. */
-export function ToastProvider({ children, bottom = 90 }: { children: ReactNode; bottom?: number }) {
+export function ToastProvider({
+  children,
+  bottom = 90,
+  inset = 14,
+}: {
+  children: ReactNode;
+  bottom?: number;
+  /** Space at the left and right. The TV keeps the toast narrow and centred. */
+  inset?: number;
+}) {
   const [toast, setToast] = useState<{ message: string; opts: ToastOpts; key: number } | null>(null);
   const anim = useRef(new Animated.Value(0)).current;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -41,7 +50,7 @@ export function ToastProvider({ children, bottom = 90 }: { children: ReactNode; 
             accessibilityLiveRegion="polite"
             style={[
               styles.toast,
-              { bottom },
+              { bottom, left: inset, right: inset },
               toast.opts.error && styles.error,
               { opacity: anim, transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] },
             ]}
