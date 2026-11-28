@@ -19,6 +19,7 @@ import { Centered, SignIn } from '../components/SignIn';
 import { isConfigured } from '../lib/config';
 import { colors } from '../lib/theme';
 import { isTV, px } from '../lib/tv';
+import { useOtaUpdates } from '../lib/updates';
 import { AppDataProvider } from '../state/app-data';
 import { SessionProvider, useSession } from '../state/session';
 import { ToastProvider } from '../state/toast';
@@ -42,6 +43,7 @@ export default function RootLayout() {
     Figtree_800ExtraBold,
   });
   const ready = fontsLoaded || !!fontError;
+  useOtaUpdates();
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync().catch(() => {});

@@ -50,21 +50,19 @@ minutes and are deleted once used. Only the function can read the table.
 
 ## Installing it on the TV
 
-Expo Go isn't available for TVs, so the TV needs a build of the app. EAS builds it in the cloud
-(free Expo account):
+Expo Go isn't available for TVs, so the TV needs the APK. The easy way, with updates that arrive
+by themselves, is from GitHub Releases with Obtainium: see [APP_UPDATES.md](APP_UPDATES.md).
+
+To build an APK by hand instead (free Expo account):
 
 ```bash
 cd mobile
 npx eas-cli@latest build --profile preview --platform android
 ```
 
-That gives an APK link. To put it on the TV:
-
-- **Easiest:** on the TV install the **Downloader** app (by AFTVnews) from Google Play, turn on
-  Settings → System → About → tap Android TV OS build 7 times for developer options, then allow
-  Downloader to install unknown apps. Open the APK link in Downloader.
-- **Or with adb:** turn on USB/network debugging on the TV, then `adb connect <tv-ip>` and
-  `adb install <file>.apk`.
+That gives an APK link. Install it with the **Downloader** app (see APP_UPDATES.md for turning on
+unknown sources) or with adb: turn on network debugging on the TV, then `adb connect <tv-ip>` and
+`adb install <file>.apk`.
 
 The app then shows up in the TV's apps row with a What to Watch banner. The same APK installs on an
 Android phone too (and there Google sign-in uses `whattowatch://`, so no tunnel is needed).

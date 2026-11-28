@@ -1,5 +1,4 @@
 import type { UserIdentity } from '@supabase/supabase-js';
-import Constants from 'expo-constants';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { useCallback, useEffect, useState } from 'react';
@@ -10,6 +9,7 @@ import { linkGoogle, listIdentities, unlinkGoogle } from '../lib/google-auth';
 import { buildLetterboxdCsv } from '../lib/letterboxd';
 import { supabase } from '../lib/supabase';
 import { colors, fonts } from '../lib/theme';
+import { checkForUpdateNow, updatesEnabled, versionLabel } from '../lib/updates';
 import { useSession } from '../state/session';
 import { BottomSheet } from './BottomSheet';
 import { GoogleIcon } from './Icons';
@@ -103,7 +103,7 @@ export function AboutSheet({ visible, onClose }: { visible: boolean; onClose: ()
           </Pressable>
         </View>
 
-        <Text style={styles.small}>Version {Constants.expoConfig?.version ?? '1.0.0'}</Text>
+        <AppVersion />
 
         <Pressable
           style={({ pressed }) => [styles.signOut, pressed && { opacity: 0.8 }]}
@@ -116,6 +116,35 @@ export function AboutSheet({ visible, onClose }: { visible: boolean; onClose: ()
         </Pressable>
       </View>
     </BottomSheet>
+  );
+}
+
+/** The app's version, and a button that fetches an over-the-air update now instead of at the next launch. */
+function AppVersion() {
+  const [checking, setChecking] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const check = async () => {
+    setChecking(true);
+    setNote(null);
+    try {
+      const result = await checkForUpdateNow();
+      if (result === 'up-to-date') setNote('You have the latest version.');
+    } catch {
+      setNote("Couldn't check for updates. Try again when you're online.");
+    } finally {
+      setChecking(false);
+    }
+  };
+  return (
+    <View style={{ gap: 4 }}>
+      <Text style={styles.small}>{versionLabel()}</Text>
+      {updatesEnabled && (
+        <Pressable onPress={check} disabled={checking} accessibilityRole="button">
+          <Text style={styles.link}>{checking ? 'Checking for updates…' : 'Check for updates'}</Text>
+        </Pressable>
+      )}
+      {note && <Text style={styles.small}>{note}</Text>}
+    </View>
   );
 }
 
