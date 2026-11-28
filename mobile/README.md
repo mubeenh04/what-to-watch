@@ -1,7 +1,10 @@
-# What to Watch — mobile app
+# What to Watch — mobile and Google TV app
 
 Native Android and iOS app built with React Native and Expo (SDK 58, Expo Router). It reads and
 writes the Supabase project `what-to-watch`; titles come from the TMDB sync in `../supabase`.
+
+The same app runs on Google TV / Android TV with a TV layout (tabs along the top, D-pad focus,
+sign in with a code from your phone). See [GOOGLE_TV.md](GOOGLE_TV.md) for installing it on the TV.
 
 ## Run it on your phone (Expo Go)
 
@@ -43,6 +46,9 @@ Saving a file on the Mac reloads the app on the phone straight away.
 | `src/lib/google-auth.ts` | Google sign-in, sign-up and linking (Supabase Auth); setup in `GOOGLE_SIGN_IN.md` |
 | `src/components/AboutSheet.tsx` | Person icon: sign-in methods (Link Google account), sign out, TMDB credits |
 | `src/lib/format.ts` | Turns database rows into cards (tested in `tests/`) |
+| `src/state/use-titles.ts` | Loads a section and moves titles with Undo (phone and TV) |
+| `src/tv/` | The Google TV layout ([GOOGLE_TV.md](GOOGLE_TV.md)) |
+| `src/components/TvApprove.tsx` | About → Sign in a TV: type the code the TV shows |
 
 A title lives in exactly one section. Each button changes the title's `user_title.status`, but
 only while it is still in the section the card came from, and logs the move in

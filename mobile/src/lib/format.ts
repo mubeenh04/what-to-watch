@@ -61,8 +61,13 @@ export function whereToWatch(row: TitleRow): WhereToWatch[] {
  * so w342 is sharp on 3x screens and about half the download.
  */
 export function posterForCard(url: string | null): string | null {
+  return posterAtSize(url, 'w342');
+}
+
+/** The same TMDB poster at another size, e.g. w780 for the big TV spotlight. */
+export function posterAtSize(url: string | null, size: 'w185' | 'w342' | 'w500' | 'w780' | 'original'): string | null {
   if (!url) return null;
-  return url.replace(/\/t\/p\/(w\d+|original)\//, '/t/p/w342/');
+  return url.replace(/\/t\/p\/(w\d+|original)\//, `/t/p/${size}/`);
 }
 
 export function toCard(row: TitleRow): CardTitle {
@@ -94,6 +99,8 @@ export function toCard(row: TitleRow): CardTitle {
     letterboxdUrl: letterboxdUrl(t.name, t.letterboxd_url, t.tmdb_id, t.title_type),
     rating: toScore(row.user_rating),
     watchedAt: row.watched_at,
+    statusChangedAt: row.status_changed_at ?? null,
+    reason: row.recommendation_reason?.trim() || null,
     release: releaseInfo(row),
   };
 }

@@ -13,6 +13,7 @@ import { colors, fonts } from '../lib/theme';
 import { useSession } from '../state/session';
 import { BottomSheet } from './BottomSheet';
 import { GoogleIcon } from './Icons';
+import { TvApprove } from './TvApprove';
 
 /** Account and About: signed-in email, sign-in methods (link Google), sign out, and TMDB's attributions. */
 export function AboutSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -58,6 +59,9 @@ export function AboutSheet({ visible, onClose }: { visible: boolean; onClose: ()
 
         <Text style={styles.label}>SIGN-IN METHODS</Text>
         {visible && <SignInMethods />}
+
+        <Text style={styles.label}>SIGN IN A TV</Text>
+        <TvApprove />
 
         <Text style={styles.label}>LETTERBOXD</Text>
         <Text style={styles.small}>

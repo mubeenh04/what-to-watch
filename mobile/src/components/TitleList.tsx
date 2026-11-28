@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -11,22 +11,11 @@ import {
   View,
 } from 'react-native';
 
-import { listTitles, moveTitle, setRating, StaleMoveError, type Section } from '../lib/api';
-import { supabase } from '../lib/supabase';
+import type { Section } from '../lib/api';
 import { colors, fonts } from '../lib/theme';
-import type { Action, CardTitle, HomeFilters, Status, TitleType } from '../lib/types';
-import { useAppData } from '../state/app-data';
-import { useToast } from '../state/toast';
+import type { Action, CardTitle, HomeFilters, TitleType } from '../lib/types';
+import { useTitles } from '../state/use-titles';
 import { TitleCard, type CardKind } from './TitleCard';
-
-/** Where each button sends a title, and what the toast says. */
-const MOVES: Partial<Record<Action, { to: Status; message: (name: string) => string }>> = {
-  watched: { to: 'history', message: (n) => `“${n}” moved to History` },
-  hide: { to: 'hidden', message: (n) => `Hid “${n}”` },
-  watchlist: { to: 'watchlist', message: (n) => `Added “${n}” to your Watchlist` },
-  remove: { to: 'removed', message: (n) => `Removed “${n}”. It won't be recommended again` },
-  downloaded: { to: 'home', message: (n) => `“${n}” moved to Home` },
-};
 
 export const EMPTY_TEXT: Record<CardKind, string> = {
   home: 'Nothing here yet. Titles on Netflix or your drives show up here.',
@@ -46,128 +35,28 @@ type Props = {
 };
 
 export function TitleList({ section, type, kind, filters, search, hasActiveFilters, onClearFilters }: Props) {
-  const { userId, version, bump } = useAppData();
-  const toast = useToast();
-  const [items, setItems] = useState<CardTitle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const request = useRef(0);
-  // Moves this list made itself. Their version bump shouldn't reload the list (it already
-  // dropped the card), only the counts elsewhere.
-  const ownBumps = useRef(0);
-
-  const load = useCallback(
-    async (mode: 'initial' | 'refresh') => {
-      const id = ++request.current;
-      if (mode === 'refresh') setRefreshing(true);
-      else setLoading(true);
-      setError(null);
-      try {
-        const res = await listTitles(supabase, { section, type, filters, search, offset: 0 });
-        if (id !== request.current) return;
-        setItems(res.items);
-        setHasMore(res.hasMore);
-      } catch (e) {
-        if (id !== request.current) return;
-        setError((e as Error)?.message || 'Could not load titles.');
-      } finally {
-        if (id === request.current) {
-          setLoading(false);
-          setRefreshing(false);
-        }
-      }
-    },
-    [section, type, filters, search],
-  );
-
-  // Reload when the tab, filters or (someone else's) moves change.
-  const lastVersion = useRef(version);
-  useEffect(() => {
-    if (version !== lastVersion.current && ownBumps.current > 0) {
-      ownBumps.current--;
-      lastVersion.current = version;
-      return;
-    }
-    lastVersion.current = version;
-    load('initial');
-  }, [load, version]);
-
-  const loadMore = useCallback(async () => {
-    if (!hasMore || loadingMore || loading) return;
-    const id = request.current;
-    setLoadingMore(true);
-    try {
-      const res = await listTitles(supabase, { section, type, filters, search, offset: items.length });
-      if (id !== request.current) return;
-      setItems((prev) => {
-        const seen = new Set(prev.map((i) => i.id));
-        return [...prev, ...res.items.filter((i) => !seen.has(i.id))];
-      });
-      setHasMore(res.hasMore);
-    } catch {
-      // Leave hasMore as is; scrolling again will retry.
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [hasMore, loadingMore, loading, section, type, filters, search, items.length]);
+  const { items, loading, refreshing, loadingMore, error, load, loadMore, move, rate } = useTitles({
+    section,
+    type,
+    filters,
+    search,
+  });
 
   const onAction = useCallback(
-    async (item: CardTitle, action: Action) => {
-      const move = MOVES[action];
-      if (!move) return;
-      const from = item.status;
+    (item: CardTitle, action: Action) => {
       Haptics.selectionAsync().catch(() => {});
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      const index = items.findIndex((i) => i.id === item.id);
-      setItems((prev) => prev.filter((i) => i.id !== item.id));
-      try {
-        await moveTitle(supabase, userId, item.id, from, move.to, action);
-        ownBumps.current++;
-        bump();
-        toast(move.message(item.name), {
-          undo: async () => {
-            try {
-              await moveTitle(supabase, userId, item.id, move.to, from, 'undo');
-            } catch (e) {
-              toast(e instanceof StaleMoveError ? e.message : "Couldn't undo. Try again.", { error: true });
-            }
-            bump();
-          },
-        });
-      } catch (e) {
-        if (e instanceof StaleMoveError) {
-          toast(e.message, { error: true });
-          bump();
-          return;
-        }
-        // Put the card back where it was.
-        setItems((prev) => {
-          const next = [...prev];
-          next.splice(Math.max(0, Math.min(index, next.length)), 0, item);
-          return next;
-        });
-        toast("Couldn't save that. Check your connection and try again.", { error: true });
-      }
+      move(item, action);
     },
-    [items, userId, bump, toast],
+    [move],
   );
 
   const onRate = useCallback(
-    async (item: CardTitle, rating: number | null) => {
+    (item: CardTitle, rating: number | null) => {
       Haptics.selectionAsync().catch(() => {});
-      const previous = item.rating;
-      setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, rating } : i)));
-      try {
-        await setRating(supabase, userId, item.id, rating);
-      } catch {
-        setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, rating: previous } : i)));
-        toast("Couldn't save your rating. Try again.", { error: true });
-      }
+      rate(item, rating);
     },
-    [userId, toast],
+    [rate],
   );
 
   if (loading && !items.length) {

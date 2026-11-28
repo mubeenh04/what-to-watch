@@ -8,7 +8,8 @@ import type { RatedMovie } from './letterboxd';
 import { displayNameFor } from './oauth-redirect';
 import type { Action, CardTitle, Genre, HomeFilters, Status, TitleRow, TitleType } from './types';
 
-export type Section = 'home' | 'explore' | 'watchlist' | 'history';
+/** A section is a user_title status: Home, Explore, Watchlist, History, Hidden or Removed. */
+export type Section = Status;
 
 const BASE_TITLE_FIELDS = `title_id,title_type,name,release_year,end_year,synopsis,poster_url,imdb_rating,metacritic_score,letterboxd_url,tmdb_id,
   title_genre(rank,genre(name)),
@@ -74,7 +75,7 @@ function sectionQuery(
   const f = filters;
   const fields =
     select === 'rows'
-      ? `title_id,status,status_changed_at,watched_at,user_rating,title!inner(${titleFields()}${filterEmbeds(f)})`
+      ? `title_id,status,status_changed_at,watched_at,user_rating,recommendation_reason,title!inner(${titleFields()}${filterEmbeds(f)})`
       : `title_id,title!inner(title_type${filterEmbeds(f)})`;
   let q: Q = client
     .from('user_title')
@@ -90,6 +91,8 @@ function orderFor(q: Q, section: Section): Q {
     case 'history':
       return q.order('watched_at', { ascending: false, nullsFirst: false }).order('title_id');
     case 'watchlist':
+    case 'hidden':
+    case 'removed':
       return q.order('status_changed_at', { ascending: false }).order('title_id');
     case 'explore':
       return q
